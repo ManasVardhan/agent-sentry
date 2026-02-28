@@ -1,0 +1,65 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "agent-sentry"
+version = "0.1.0"
+description = "Crash reporting for AI agents. Catch failures before your users do."
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.9"
+authors = [
+    {name = "Manas Vardhan", email = "manasvardhan@gmail.com"},
+]
+keywords = ["ai", "agents", "monitoring", "crash-reporting", "llm", "observability"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: System :: Monitoring",
+]
+
+[project.urls]
+Homepage = "https://github.com/ManasVardhan/agent-sentry"
+Repository = "https://github.com/ManasVardhan/agent-sentry"
+Issues = "https://github.com/ManasVardhan/agent-sentry/issues"
+
+[project.scripts]
+agent-sentry = "agent_sentry.cli:main"
+
+[project.optional-dependencies]
+dashboard = ["streamlit>=1.28.0", "pandas>=2.0.0"]
+langchain = ["langchain-core>=0.1.0"]
+openai = ["openai>=1.0.0"]
+anthropic = ["anthropic>=0.20.0"]
+all = [
+    "streamlit>=1.28.0",
+    "pandas>=2.0.0",
+    "langchain-core>=0.1.0",
+    "openai>=1.0.0",
+    "anthropic>=0.20.0",
+]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
+    "ruff>=0.1.0",
+]
+
+[tool.setuptools.packages.find]
+include = ["agent_sentry*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-v --tb=short"
+
+[tool.ruff]
+target-version = "py39"
+line-length = 100
