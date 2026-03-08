@@ -5,7 +5,6 @@ import uuid
 import traceback as tb
 from datetime import datetime, timezone
 from typing import Any, Callable, Dict, Optional
-from functools import wraps
 
 from .analysis import analyze_event
 from .storage import get_store, EventStore

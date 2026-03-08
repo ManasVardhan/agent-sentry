@@ -117,6 +117,7 @@ __all__ = [
     "classify_error",
     "get_store",
     "get_capture",
+    "reset_capture",
     "get_alert_manager",
     "__version__",
 ]

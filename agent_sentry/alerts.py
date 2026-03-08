@@ -51,7 +51,7 @@ class SlackAlert(AlertChannel):
         duration = event.get("duration_ms", 0)
 
         payload = {
-            "text": f":rotating_light: Agent Failure Detected",
+            "text": ":rotating_light: Agent Failure Detected",
             "blocks": [
                 {
                     "type": "header",

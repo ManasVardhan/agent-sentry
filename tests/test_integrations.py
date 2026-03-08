@@ -1,7 +1,7 @@
 """Tests for framework integrations."""
 
 import pytest
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 from agent_sentry.storage import EventStore
 from agent_sentry.capture import EventCapture
 from agent_sentry.alerts import AlertManager

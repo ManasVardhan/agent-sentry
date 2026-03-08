@@ -1,6 +1,5 @@
 """Tests for root cause classification."""
 
-import pytest
 from agent_sentry.analysis import classify_error, analyze_event, RootCause
 
 

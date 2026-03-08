@@ -1,7 +1,5 @@
 """Tests for the SQLite event storage."""
 
-import os
-import tempfile
 import uuid
 import pytest
 from datetime import datetime, timezone, timedelta

@@ -4,8 +4,6 @@ import pytest
 from agent_sentry.alerts import (
     AlertManager,
     CallbackAlert,
-    WebhookAlert,
-    SlackAlert,
     _format_payload,
 )
 

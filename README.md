@@ -1,5 +1,10 @@
 # 🔍 agent-sentry
 
+[![PyPI](https://img.shields.io/pypi/v/agent-sentry)](https://pypi.org/project/agent-sentry/)
+[![Python](https://img.shields.io/pypi/pyversions/agent-sentry)](https://pypi.org/project/agent-sentry/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Tests](https://github.com/ManasVardhan/agent-sentry/actions/workflows/ci.yml/badge.svg)](https://github.com/ManasVardhan/agent-sentry/actions)
+
 > **Crash reporting for AI agents. Catch failures before your users do.**
 
 Your AI agent works great in demos. In production, it fails silently. Tool calls timeout. Context windows overflow. Hallucinations slip through. And you have no idea until a user complains.

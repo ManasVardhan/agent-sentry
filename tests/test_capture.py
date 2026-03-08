@@ -111,3 +111,108 @@ def test_safe_repr_handles_dict():
 def test_safe_repr_handles_list():
     result = _safe_repr([1, 2, 3])
     assert result == [1, 2, 3]
+
+
+def test_safe_repr_truncates_long_list():
+    long_list = list(range(50))
+    result = _safe_repr(long_list)
+    # Should have 20 items + truncation marker
+    assert len(result) == 21
+    assert "more" in str(result[-1])
+
+
+def test_safe_repr_truncates_long_dict():
+    long_dict = {f"key_{i}": i for i in range(50)}
+    result = _safe_repr(long_dict)
+    assert "__truncated__" in result
+    assert "more" in result["__truncated__"]
+
+
+def test_safe_repr_unserializable():
+    class Weird:
+        def __str__(self):
+            raise RuntimeError("can't str me")
+
+    result = _safe_repr(Weird())
+    assert "unserializable" in result
+
+
+def test_capture_silent_failure_none(capture, store):
+    """Functions returning None should be flagged as silent failures."""
+    def returns_none():
+        return None
+
+    result = capture.capture_call(returns_none, (), {})
+    assert result is None
+
+    events = store.get_events()
+    assert events[0]["success"] is False
+    assert events[0]["root_cause"] == "silent_failure"
+
+
+def test_capture_silent_failure_empty_list(capture, store):
+    """Functions returning empty list should be flagged."""
+    def returns_empty():
+        return []
+
+    result = capture.capture_call(returns_empty, (), {})
+    assert result == []
+
+    events = store.get_events()
+    assert events[0]["success"] is False
+
+
+def test_capture_auto_classify_disabled(store):
+    """With auto_classify=False, empty results should not be flagged."""
+    cap = EventCapture(store=store, alert_manager=AlertManager(async_send=False), auto_classify=False)
+
+    def returns_none():
+        return None
+
+    result = cap.capture_call(returns_none, (), {})
+    assert result is None
+
+    events = store.get_events()
+    assert events[0]["success"] is True
+
+
+def test_capture_sends_alert_on_failure(store):
+    """Alerts should fire for failures."""
+    alerts = []
+    manager = AlertManager(async_send=False)
+    from agent_sentry import CallbackAlert
+    manager.add_channel(CallbackAlert(lambda e: alerts.append(e)))
+    cap = EventCapture(store=store, alert_manager=manager)
+
+    def fail():
+        raise RuntimeError("boom")
+
+    with pytest.raises(RuntimeError):
+        cap.capture_call(fail, (), {})
+
+    assert len(alerts) == 1
+    assert alerts[0]["error_message"] == "boom"
+
+
+def test_log_event_failed_manually(capture, store):
+    """Manually logged failed events should get classified."""
+    capture.log_event({
+        "event_type": "manual",
+        "function_name": "test",
+        "success": False,
+        "error_message": "Connection timed out",
+    })
+    events = store.get_events()
+    assert events[0]["root_cause"] == "timeout"
+
+
+def test_capture_preserves_function_qualname(capture, store):
+    class MyClass:
+        def method(self):
+            return "ok"
+
+    obj = MyClass()
+    capture.capture_call(obj.method, (), {})
+    events = store.get_events()
+    assert "MyClass" in events[0]["function_name"]
+    assert "method" in events[0]["function_name"]

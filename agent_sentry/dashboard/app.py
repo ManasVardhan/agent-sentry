@@ -1,7 +1,6 @@
 """Streamlit dashboard for agent-sentry failure analytics."""
 
 import sys
-import json
 from datetime import datetime, timedelta, timezone
 
 try:
