@@ -6,12 +6,16 @@ import sys
 import os
 from datetime import datetime, timedelta, timezone
 
+from . import __version__
 from .storage import get_store, DEFAULT_DB_PATH
 
 
 def cmd_dashboard(args):
     """Launch the Streamlit dashboard."""
     dashboard_path = os.path.join(os.path.dirname(__file__), "dashboard", "app.py")
+    if not os.path.exists(dashboard_path):
+        print("Error: dashboard app not found. Reinstall agent-sentry.")
+        sys.exit(1)
     db_path = args.db or DEFAULT_DB_PATH
     cmd = [sys.executable, "-m", "streamlit", "run", dashboard_path, "--", db_path]
     try:
@@ -19,6 +23,8 @@ def cmd_dashboard(args):
     except FileNotFoundError:
         print("Error: streamlit not found. Install with: pip install agent-sentry[dashboard]")
         sys.exit(1)
+    except KeyboardInterrupt:
+        print("\nDashboard stopped.")
 
 
 def cmd_report(args):
@@ -96,12 +102,44 @@ def cmd_clear(args):
         print("Cancelled.")
 
 
+def cmd_status(args):
+    """Show the current status of agent-sentry."""
+    store = get_store(args.db)
+    db_path = store.db_path
+    total = store.get_total_count()
+    failures = store.get_failure_count()
+    reliability = store.get_reliability_score()
+
+    print()
+    print(f"  agent-sentry v{__version__}")
+    print(f"  Database: {db_path}")
+    print(f"  Total events: {total}")
+    print(f"  Failures: {failures}")
+    print(f"  Reliability: {reliability}%")
+    db_exists = os.path.exists(db_path)
+    if db_exists:
+        size_bytes = os.path.getsize(db_path)
+        if size_bytes < 1024:
+            size_str = f"{size_bytes} B"
+        elif size_bytes < 1024 * 1024:
+            size_str = f"{size_bytes / 1024:.1f} KB"
+        else:
+            size_str = f"{size_bytes / (1024 * 1024):.1f} MB"
+        print(f"  DB size: {size_str}")
+    print()
+
+
 def main():
     parser = argparse.ArgumentParser(
         prog="agent-sentry",
         description="Crash reporting for AI agents.",
     )
     parser.add_argument("--db", help="Path to SQLite database", default=None)
+    parser.add_argument(
+        "--version", "-V",
+        action="version",
+        version=f"agent-sentry {__version__}",
+    )
 
     subparsers = parser.add_subparsers(dest="command")
 
@@ -111,12 +149,19 @@ def main():
 
     # report
     report_parser = subparsers.add_parser("report", help="Print a terminal summary report")
-    report_parser.add_argument("--hours", type=int, default=24, help="Hours to look back (default: 24)")
+    report_parser.add_argument(
+        "--hours", type=int, default=24,
+        help="Hours to look back (default: 24)",
+    )
     report_parser.set_defaults(func=cmd_report)
 
     # clear
     clear_parser = subparsers.add_parser("clear", help="Clear all stored events")
     clear_parser.set_defaults(func=cmd_clear)
+
+    # status
+    status_parser = subparsers.add_parser("status", help="Show agent-sentry status and DB info")
+    status_parser.set_defaults(func=cmd_status)
 
     args = parser.parse_args()
 

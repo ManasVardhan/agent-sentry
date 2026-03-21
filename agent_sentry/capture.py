@@ -106,6 +106,87 @@ class EventCapture:
 
             raise
 
+    async def async_capture_call(
+        self,
+        func: Callable,
+        args: tuple,
+        kwargs: dict,
+        event_type: str = "function_call",
+        metadata: Optional[Dict[str, Any]] = None,
+        tags: Optional[list] = None,
+    ) -> Any:
+        """Execute an async function and capture the event.
+
+        Args:
+            func: The async function to call.
+            args: Positional arguments.
+            kwargs: Keyword arguments.
+            event_type: Type of event (function_call, llm_call, tool_call).
+            metadata: Additional metadata to store.
+            tags: Tags for the event.
+
+        Returns:
+            The result of the async function call.
+
+        Raises:
+            The original exception if the function fails.
+        """
+        event_id = str(uuid.uuid4())
+        start_time = time.monotonic()
+        timestamp = datetime.now(timezone.utc).isoformat()
+
+        try:
+            safe_args = {"args": _safe_repr(args), "kwargs": _safe_repr(kwargs)}
+        except Exception:
+            safe_args = {"args": str(args), "kwargs": str(kwargs)}
+
+        event: Dict[str, Any] = {
+            "event_id": event_id,
+            "timestamp": timestamp,
+            "event_type": event_type,
+            "function_name": getattr(func, "__qualname__", getattr(func, "__name__", str(func))),
+            "args": safe_args,
+            "success": True,
+            "metadata": metadata or {},
+            "tags": tags or [],
+        }
+
+        try:
+            result = await func(*args, **kwargs)
+            elapsed = (time.monotonic() - start_time) * 1000
+            event["duration_ms"] = round(elapsed, 2)
+            event["result"] = _safe_repr(result)
+            event["success"] = True
+
+            if self.auto_classify and (
+                result is None or result == "" or result == {} or result == []
+            ):
+                event["success"] = False
+                event["root_cause"] = analyze_event(event)
+
+            self.store.store_event(event)
+            return result
+
+        except Exception as e:
+            elapsed = (time.monotonic() - start_time) * 1000
+            event["duration_ms"] = round(elapsed, 2)
+            event["success"] = False
+            event["error_message"] = str(e)
+            event["error_type"] = type(e).__name__
+            event["traceback"] = tb.format_exc()
+
+            if self.auto_classify:
+                event["root_cause"] = analyze_event(event)
+
+            self.store.store_event(event)
+
+            try:
+                self.alert_manager.send_alert(event)
+            except Exception:
+                pass
+
+            raise
+
     def log_event(self, event: Dict[str, Any]) -> None:
         """Manually log an event.
 

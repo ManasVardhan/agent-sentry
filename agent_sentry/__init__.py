@@ -2,6 +2,7 @@
 
 __version__ = "0.1.0"
 
+import inspect
 from functools import wraps
 from typing import Any, Callable, Dict, List, Optional
 
@@ -29,10 +30,14 @@ def watch(
 ):
     """Decorator that wraps a function and captures all events.
 
-    Can be used with or without arguments:
+    Can be used with or without arguments. Works with both sync and async functions:
 
         @watch
         def my_agent(query):
+            ...
+
+        @watch
+        async def async_agent(query):
             ...
 
         @watch(event_type="tool_call", tags=["search"])
@@ -47,16 +52,28 @@ def watch(
         capture: Custom EventCapture instance to use.
     """
     def decorator(fn: Callable) -> Callable:
-        @wraps(fn)
-        def wrapper(*args, **kwargs):
-            cap = capture or get_capture()
-            return cap.capture_call(
-                fn, args, kwargs,
-                event_type=event_type,
-                metadata=metadata,
-                tags=tags,
-            )
-        return wrapper
+        if inspect.iscoroutinefunction(fn):
+            @wraps(fn)
+            async def async_wrapper(*args, **kwargs):
+                cap = capture or get_capture()
+                return await cap.async_capture_call(
+                    fn, args, kwargs,
+                    event_type=event_type,
+                    metadata=metadata,
+                    tags=tags,
+                )
+            return async_wrapper
+        else:
+            @wraps(fn)
+            def wrapper(*args, **kwargs):
+                cap = capture or get_capture()
+                return cap.capture_call(
+                    fn, args, kwargs,
+                    event_type=event_type,
+                    metadata=metadata,
+                    tags=tags,
+                )
+            return wrapper
 
     if func is not None:
         return decorator(func)

@@ -138,12 +138,21 @@ class SentryOpenAIWrapper:
 
 
 # Cost estimates per 1K tokens (USD)
+# Order matters: more specific names must come before prefixes (e.g. gpt-4o-mini before gpt-4o)
 _COST_TABLE: Dict[str, Dict[str, float]] = {
-    "gpt-4": {"prompt": 0.03, "completion": 0.06},
-    "gpt-4-turbo": {"prompt": 0.01, "completion": 0.03},
-    "gpt-4o": {"prompt": 0.005, "completion": 0.015},
+    "gpt-4.1-nano": {"prompt": 0.0001, "completion": 0.0004},
+    "gpt-4.1-mini": {"prompt": 0.0004, "completion": 0.0016},
+    "gpt-4.1": {"prompt": 0.002, "completion": 0.008},
     "gpt-4o-mini": {"prompt": 0.00015, "completion": 0.0006},
+    "gpt-4o": {"prompt": 0.0025, "completion": 0.01},
+    "gpt-4-turbo": {"prompt": 0.01, "completion": 0.03},
+    "gpt-4": {"prompt": 0.03, "completion": 0.06},
     "gpt-3.5-turbo": {"prompt": 0.0005, "completion": 0.0015},
+    "o4-mini": {"prompt": 0.0011, "completion": 0.0044},
+    "o3-mini": {"prompt": 0.0011, "completion": 0.0044},
+    "o3": {"prompt": 0.01, "completion": 0.04},
+    "o1-mini": {"prompt": 0.003, "completion": 0.012},
+    "o1": {"prompt": 0.015, "completion": 0.06},
 }
 
 
