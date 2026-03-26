@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/banner.png" alt="agent-sentry banner" width="100%" />
+</p>
+
 # 🔍 agent-sentry
 
 [![PyPI](https://img.shields.io/pypi/v/agent-sentry)](https://pypi.org/project/agent-sentry/)
