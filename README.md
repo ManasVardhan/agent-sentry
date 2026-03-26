@@ -2,26 +2,23 @@
   <img src="assets/banner.png" alt="agent-sentry banner" width="100%" />
 </p>
 
-# 🔍 agent-sentry
+<p align="center">
+  <a href="https://pypi.org/project/ai-agent-sentry/"><img src="https://img.shields.io/pypi/v/ai-agent-sentry?color=blue" alt="PyPI"></a>
+  <a href="https://pypi.org/project/ai-agent-sentry/"><img src="https://img.shields.io/pypi/dm/ai-agent-sentry?color=green" alt="Downloads"></a>
+  <a href="https://pypi.org/project/ai-agent-sentry/"><img src="https://img.shields.io/pypi/pyversions/ai-agent-sentry" alt="Python"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="License"></a>
+  <a href="https://github.com/ManasVardhan/agent-sentry/actions"><img src="https://github.com/ManasVardhan/agent-sentry/actions/workflows/ci.yml/badge.svg" alt="Tests"></a>
+</p>
 
-[![PyPI](https://img.shields.io/pypi/v/ai-agent-sentry)](https://pypi.org/project/ai-agent-sentry/)
-[![Python](https://img.shields.io/pypi/pyversions/ai-agent-sentry)](https://pypi.org/project/ai-agent-sentry/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Tests](https://github.com/ManasVardhan/agent-sentry/actions/workflows/ci.yml/badge.svg)](https://github.com/ManasVardhan/agent-sentry/actions)
+<p align="center">
+  <b>Crash reporting for AI agents. Catch failures before your users do.</b>
+</p>
 
-> **Crash reporting for AI agents. Catch failures before your users do.**
+---
 
 Your AI agent works great in demos. In production, it fails silently. Tool calls timeout. Context windows overflow. Hallucinations slip through. And you have no idea until a user complains.
 
-**agent-sentry catches every failure, classifies why it happened, and alerts you in real time.**
-
-## The Problem
-
-You deployed an agent. It runs 10,000 tool calls a day. Some of them fail. You don't know which ones, you don't know why, and you definitely don't know how often.
-
-Traditional monitoring tools don't understand agents. They see HTTP 200s and think everything is fine. But your agent just hallucinated a fake API endpoint, retried it 5 times, burned $2 in tokens, and returned garbage to the user.
-
-Nobody noticed. Until now.
+**agent-sentry** catches every failure, classifies why it happened, and alerts you in real time.
 
 ## Quick Start
 
@@ -29,12 +26,13 @@ Nobody noticed. Until now.
 pip install ai-agent-sentry
 ```
 
+> **Note:** The PyPI package is `ai-agent-sentry`, but you import it as `agent_sentry`.
+
 ```python
 from agent_sentry import watch
 
 @watch
 def my_agent(query):
-    # your agent code here
     result = call_llm(query)
     return result
 
@@ -48,36 +46,45 @@ Open the dashboard:
 agent-sentry dashboard
 ```
 
-That's it. Three lines of code to know exactly when your agent breaks.
+Three lines of code. Full visibility into every failure.
+
+## Why?
+
+You deployed an agent. It runs 10,000 tool calls a day. Some fail. You don't know which ones, you don't know why, and you don't know how often.
+
+Traditional monitoring sees HTTP 200s and thinks everything is fine. But your agent just hallucinated a fake API endpoint, retried it 5 times, burned $2 in tokens, and returned garbage to the user. Nobody noticed.
+
+**agent-sentry** is Sentry for AI agents.
 
 ## Features
 
-- 🔴 **Real-time failure alerts** with full context, args, and traceback
-- 📊 **Streamlit dashboard** showing failure rates, root causes, and reliability score
-- 🔍 **Automatic root cause classification**: timeout, hallucination, context overflow, malformed args, rate limit, auth error, silent failure
-- 💰 **Cost tracking** per LLM call with token usage and estimated spend
-- 🧪 **Reliability score** you can track over time (like a credit score for your agent)
-- 🔔 **Alerts** via Slack, webhooks, email, or custom callbacks
-- 📦 **Zero config** for basic usage. One decorator. Done.
-- 🖥️ **CLI** for quick terminal reports without opening a browser
+| | |
+|---|---|
+| **@watch decorator** | One line. Wraps any agent function. |
+| **Root cause classification** | Timeout, hallucination, context overflow, rate limit, auth error, silent failure, wrong tool. Automatic. |
+| **Live dashboard** | Streamlit UI with failure rates, root causes, reliability scores, and cost tracking. |
+| **Cost tracking** | Token usage and estimated spend per call. |
+| **Reliability score** | Track agent health over time, like a credit score. |
+| **Alerts** | Slack, webhooks, email, or custom callbacks. |
+| **CLI** | Terminal reports without opening a browser. |
+| **Zero config** | One decorator. Done. |
 
-## Works With Everything
+## Integrations
 
 ```python
 # OpenAI
 from agent_sentry.integrations.openai import SentryOpenAIWrapper
-sentry_client = SentryOpenAIWrapper(openai_client)
-response = sentry_client.chat_completions_create(model="gpt-4", messages=[...])
+client = SentryOpenAIWrapper(openai_client)
+response = client.chat_completions_create(model="gpt-4", messages=[...])
 
 # Anthropic
 from agent_sentry.integrations.anthropic import SentryAnthropicWrapper
-sentry_client = SentryAnthropicWrapper(anthropic_client)
-response = sentry_client.messages_create(model="claude-sonnet-4-20250514", messages=[...])
+client = SentryAnthropicWrapper(anthropic_client)
+response = client.messages_create(model="claude-sonnet-4-20250514", messages=[...])
 
 # LangChain
 from agent_sentry.integrations.langchain import AgentSentryCallbackHandler
-handler = AgentSentryCallbackHandler()
-llm = ChatOpenAI(callbacks=[handler])
+llm = ChatOpenAI(callbacks=[AgentSentryCallbackHandler()])
 
 # Any function
 @watch(event_type="tool_call", tags=["search"])
@@ -85,55 +92,53 @@ def search_web(query):
     return requests.get(f"https://api.search.com?q={query}").json()
 ```
 
-LangChain, OpenAI, Anthropic, or plain Python functions. One decorator. Zero config changes.
+## Root Cause Categories
 
-## Benchmarks
+| Category | What It Catches |
+|---|---|
+| `timeout` | Deadline exceeded, slow requests |
+| `hallucination` | References to non-existent tools, APIs, or data |
+| `context_overflow` | Token limit exceeded |
+| `malformed_args` | Type errors, validation failures |
+| `rate_limit` | 429s, quota exceeded |
+| `auth_error` | Invalid keys, 401/403 |
+| `silent_failure` | No error, but empty/null results |
+| `network_error` | Connection refused, DNS, SSL |
+| `wrong_tool` | Agent picked the wrong tool |
 
-| Metric | Without agent-sentry | With agent-sentry |
+## Performance
+
+| Metric | Without | With agent-sentry |
 |---|---|---|
-| Mean time to detect failure | 4.2 hours (user report) | 0.3 seconds |
-| Tool call failures identified | ~15% (the ones users complain about) | 100% |
-| Root cause classification | Manual investigation | Automatic |
-| Overhead per call | N/A | <2ms |
-| Storage per 10K events | N/A | ~5MB (SQLite) |
+| Time to detect failure | ~4.2 hours | 0.3 seconds |
+| Failures identified | ~15% | 100% |
+| Root cause classification | Manual | Automatic |
+| Overhead per call | -- | <2ms |
+| Storage per 10K events | -- | ~5MB (SQLite) |
 
-## Alert Configuration
-
-```python
-from agent_sentry import configure, SlackAlert, WebhookAlert
-
-configure(
-    slack_webhook="https://hooks.slack.com/services/YOUR/WEBHOOK/URL",
-    # Or use generic webhooks
-    webhook_url="https://your-server.com/agent-alerts",
-)
-```
-
-Custom alert channels:
+## Alerts
 
 ```python
-from agent_sentry import configure, CallbackAlert
+from agent_sentry import configure
 
-def my_alert_handler(event):
-    print(f"ALERT: {event['function_name']} failed: {event['error_message']}")
+# Slack
+configure(slack_webhook="https://hooks.slack.com/services/YOUR/WEBHOOK/URL")
 
-configure(alert_channels=[CallbackAlert(my_alert_handler)])
+# Webhooks
+configure(webhook_url="https://your-server.com/agent-alerts")
+
+# Custom
+from agent_sentry import CallbackAlert
+configure(alert_channels=[CallbackAlert(lambda e: print(f"ALERT: {e['error_message']}"))])
 ```
 
 ## CLI
 
 ```bash
-# Launch the dashboard
-agent-sentry dashboard
-
-# Print a terminal report (last 24 hours)
-agent-sentry report
-
-# Report for last 7 days
-agent-sentry report --hours 168
-
-# Clear all events
-agent-sentry clear
+agent-sentry dashboard          # Launch Streamlit dashboard
+agent-sentry report             # Terminal report (last 24h)
+agent-sentry report --hours 168 # Last 7 days
+agent-sentry clear              # Clear all events
 ```
 
 ## Architecture
@@ -145,63 +150,29 @@ agent-sentry clear
 EventCapture (intercepts calls, measures latency, catches errors)
     |
     +--> RootCauseClassifier (timeout? hallucination? rate limit?)
-    |
     +--> EventStore (SQLite, WAL mode, thread-safe)
-    |
     +--> AlertManager (Slack, webhooks, email, callbacks)
-    |
     +--> Dashboard (Streamlit, reads from EventStore)
 ```
 
-All data stays local. SQLite with WAL mode for concurrent reads. Thread-safe by default. No external services required.
-
-## Root Cause Categories
-
-| Category | What It Catches |
-|---|---|
-| `timeout` | Requests that take too long, deadline exceeded |
-| `hallucination` | LLM outputs that reference non-existent tools, APIs, or data |
-| `context_overflow` | Token limit exceeded, input too long |
-| `malformed_args` | Invalid arguments, type errors, validation failures |
-| `rate_limit` | 429 errors, quota exceeded, throttling |
-| `auth_error` | Invalid API keys, permission denied, 401/403 |
-| `silent_failure` | No error thrown, but empty or null results |
-| `network_error` | Connection refused, DNS failures, SSL errors |
-| `wrong_tool` | Agent selected the wrong tool for the task |
-
-## Philosophy
-
-Your agent is going to production whether it's ready or not.
-
-Most agent frameworks focus on making agents smarter. That's great. But nobody focuses on what happens when they fail. And they will fail.
-
-agent-sentry doesn't make your agent smarter. It makes you smarter about your agent. You get visibility into every call, every failure, every dollar spent. So when something breaks at 3 AM, you know exactly what happened and why.
-
-Think of it like Sentry, but for AI agents. Because your agent deserves the same observability as your web app.
+All data stays local. SQLite with WAL mode. Thread-safe. No external services required.
 
 ## Installation
 
 ```bash
-# Basic
-pip install ai-agent-sentry
-
-# With dashboard
-pip install ai-agent-sentry[dashboard]
-
-# With framework integrations
-pip install ai-agent-sentry[openai,anthropic,langchain]
-
-# Everything
-pip install ai-agent-sentry[all]
+pip install ai-agent-sentry                                # Core
+pip install ai-agent-sentry[dashboard]                     # + Streamlit dashboard
+pip install ai-agent-sentry[openai,anthropic,langchain]    # + Framework integrations
+pip install ai-agent-sentry[all]                           # Everything
 ```
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for details.
+See [CONTRIBUTING.md](CONTRIBUTING.md). Issues and PRs welcome.
 
 ## Roadmap
 
-See [ROADMAP.md](ROADMAP.md) for what's coming next.
+See [ROADMAP.md](ROADMAP.md).
 
 ## License
 
