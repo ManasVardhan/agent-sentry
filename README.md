@@ -4,7 +4,6 @@
 
 <p align="center">
   <a href="https://pypi.org/project/ai-agent-sentry/"><img src="https://img.shields.io/pypi/v/ai-agent-sentry?color=blue" alt="PyPI"></a>
-  <a href="https://pypi.org/project/ai-agent-sentry/"><img src="https://img.shields.io/pypi/dm/ai-agent-sentry?color=green" alt="Downloads"></a>
   <a href="https://pypi.org/project/ai-agent-sentry/"><img src="https://img.shields.io/pypi/pyversions/ai-agent-sentry" alt="Python"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="License"></a>
   <a href="https://github.com/ManasVardhan/agent-sentry/actions"><img src="https://github.com/ManasVardhan/agent-sentry/actions/workflows/ci.yml/badge.svg" alt="Tests"></a>
