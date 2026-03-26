@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/banner.png" alt="agent-sentry banner" width="100%" />
+  <img src="https://raw.githubusercontent.com/ManasVardhan/agent-sentry/main/assets/banner.png" alt="agent-sentry banner" width="100%" />
 </p>
 
 <p align="center">

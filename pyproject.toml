@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ai-agent-sentry"
-version = "0.1.0"
+version = "0.1.1"
 description = "Crash reporting for AI agents. Catch failures before your users do."
 readme = "README.md"
 license = {text = "MIT"}
