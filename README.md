@@ -4,8 +4,8 @@
 
 # 🔍 agent-sentry
 
-[![PyPI](https://img.shields.io/pypi/v/agent-sentry)](https://pypi.org/project/agent-sentry/)
-[![Python](https://img.shields.io/pypi/pyversions/agent-sentry)](https://pypi.org/project/agent-sentry/)
+[![PyPI](https://img.shields.io/pypi/v/ai-agent-sentry)](https://pypi.org/project/ai-agent-sentry/)
+[![Python](https://img.shields.io/pypi/pyversions/ai-agent-sentry)](https://pypi.org/project/ai-agent-sentry/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Tests](https://github.com/ManasVardhan/agent-sentry/actions/workflows/ci.yml/badge.svg)](https://github.com/ManasVardhan/agent-sentry/actions)
 
@@ -26,7 +26,7 @@ Nobody noticed. Until now.
 ## Quick Start
 
 ```bash
-pip install agent-sentry
+pip install ai-agent-sentry
 ```
 
 ```python
@@ -183,16 +183,16 @@ Think of it like Sentry, but for AI agents. Because your agent deserves the same
 
 ```bash
 # Basic
-pip install agent-sentry
+pip install ai-agent-sentry
 
 # With dashboard
-pip install agent-sentry[dashboard]
+pip install ai-agent-sentry[dashboard]
 
 # With framework integrations
-pip install agent-sentry[openai,anthropic,langchain]
+pip install ai-agent-sentry[openai,anthropic,langchain]
 
 # Everything
-pip install agent-sentry[all]
+pip install ai-agent-sentry[all]
 ```
 
 ## Contributing

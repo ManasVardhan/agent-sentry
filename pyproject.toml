@@ -3,7 +3,7 @@ requires = ["setuptools>=68.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "agent-sentry"
+name = "ai-agent-sentry"
 version = "0.1.0"
 description = "Crash reporting for AI agents. Catch failures before your users do."
 readme = "README.md"

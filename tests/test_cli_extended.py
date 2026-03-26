@@ -108,6 +108,7 @@ def test_cli_report_via_subprocess(tmp_path):
         "duration_ms": 10.0,
     })
 
+    # --db must come BEFORE the subcommand
     result = subprocess.run(
         [sys.executable, "-m", "agent_sentry.cli", "--db", store.db_path, "report"],
         capture_output=True,
@@ -149,6 +150,18 @@ def test_cli_no_args_via_subprocess():
         timeout=10,
     )
     assert result.returncode == 1
+
+
+def test_cli_version_via_subprocess():
+    """Running with --version should print version string."""
+    result = subprocess.run(
+        [sys.executable, "-m", "agent_sentry.cli", "--version"],
+        capture_output=True,
+        text=True,
+        timeout=10,
+    )
+    assert result.returncode == 0
+    assert __version__ in result.stdout
 
 
 def test_report_with_multiple_root_causes(tmp_path, capsys):

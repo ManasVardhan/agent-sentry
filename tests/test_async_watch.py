@@ -186,3 +186,40 @@ def test_async_and_sync_coexist(setup_capture):
 
     events = store.get_events()
     assert len(events) == 2
+
+
+def test_async_watch_with_metadata(setup_capture):
+    """Async watch with metadata should pass metadata to the event."""
+    store, cap = setup_capture
+
+    @watch(metadata={"env": "test", "version": "1.0"})
+    async def async_with_meta():
+        return "ok"
+
+    asyncio.run(async_with_meta())
+
+    events = store.get_events()
+    assert events[0]["metadata"]["env"] == "test"
+    assert events[0]["metadata"]["version"] == "1.0"
+
+
+def test_async_watch_is_coroutine_function(setup_capture):
+    """Wrapped async functions should still be recognized as coroutine functions."""
+    import inspect
+
+    @watch
+    async def async_func():
+        return 42
+
+    assert inspect.iscoroutinefunction(async_func)
+
+
+def test_sync_watch_is_not_coroutine_function(setup_capture):
+    """Wrapped sync functions should NOT be recognized as coroutine functions."""
+    import inspect
+
+    @watch
+    def sync_func():
+        return 42
+
+    assert not inspect.iscoroutinefunction(sync_func)
