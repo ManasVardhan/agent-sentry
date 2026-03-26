@@ -1,6 +1,5 @@
 """Tests for cost estimation in OpenAI and Anthropic wrappers."""
 
-import pytest
 from agent_sentry.integrations.openai import _estimate_cost as openai_cost, _COST_TABLE as OAI_TABLE
 from agent_sentry.integrations.anthropic import _estimate_cost as anthropic_cost, _COST_TABLE as ANT_TABLE
 
