@@ -1,13 +1,17 @@
 """Alert system for agent-sentry. Supports webhooks, Slack, and email."""
 
 import json
+import logging
 import smtplib
 import threading
+import time
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from typing import Any, Callable, Dict, List, Optional
 from urllib.request import Request, urlopen
 from urllib.error import URLError
+
+logger = logging.getLogger(__name__)
 
 
 class AlertChannel:
@@ -19,23 +23,68 @@ class AlertChannel:
 
 
 class WebhookAlert(AlertChannel):
-    """Send alerts to a webhook URL (generic or Slack-compatible)."""
+    """Send alerts to a webhook URL (generic or Slack-compatible).
 
-    def __init__(self, url: str, headers: Optional[Dict[str, str]] = None):
+    Supports automatic retry with exponential backoff on transient failures.
+
+    Args:
+        url: The webhook endpoint URL.
+        headers: Optional extra HTTP headers.
+        max_retries: Maximum number of retry attempts (default 3, 0 disables retries).
+        base_delay: Base delay in seconds for exponential backoff (default 1.0).
+        timeout: HTTP request timeout in seconds (default 10).
+    """
+
+    def __init__(
+        self,
+        url: str,
+        headers: Optional[Dict[str, str]] = None,
+        max_retries: int = 3,
+        base_delay: float = 1.0,
+        timeout: int = 10,
+    ):
         self.url = url
         self.headers = headers or {}
+        self.max_retries = max_retries
+        self.base_delay = base_delay
+        self.timeout = timeout
 
     def send(self, event: Dict[str, Any]) -> bool:
         payload = _format_payload(event)
         data = json.dumps(payload).encode("utf-8")
         headers = {"Content-Type": "application/json"}
         headers.update(self.headers)
-        req = Request(self.url, data=data, headers=headers, method="POST")
-        try:
-            with urlopen(req, timeout=10) as resp:
-                return resp.status < 400
-        except (URLError, OSError):
-            return False
+
+        last_error: Optional[Exception] = None
+        for attempt in range(self.max_retries + 1):
+            req = Request(self.url, data=data, headers=headers, method="POST")
+            try:
+                with urlopen(req, timeout=self.timeout) as resp:
+                    if resp.status < 400:
+                        return True
+                    # Server error (5xx) is retriable
+                    if resp.status >= 500 and attempt < self.max_retries:
+                        delay = self.base_delay * (2 ** attempt)
+                        logger.debug(
+                            "Webhook returned %d, retrying in %.1fs (attempt %d/%d)",
+                            resp.status, delay, attempt + 1, self.max_retries,
+                        )
+                        time.sleep(delay)
+                        continue
+                    return False
+            except (URLError, OSError) as exc:
+                last_error = exc
+                if attempt < self.max_retries:
+                    delay = self.base_delay * (2 ** attempt)
+                    logger.debug(
+                        "Webhook request failed: %s, retrying in %.1fs (attempt %d/%d)",
+                        exc, delay, attempt + 1, self.max_retries,
+                    )
+                    time.sleep(delay)
+                    continue
+
+        logger.warning("Webhook alert failed after %d attempts: %s", self.max_retries + 1, last_error)
+        return False
 
 
 class SlackAlert(AlertChannel):

@@ -210,6 +210,64 @@ class EventStore:
                 result[et]["failure"] = row[2]
         return result
 
+    def health_check(self) -> Dict[str, Any]:
+        """Run a health check on the event store.
+
+        Returns a dict with status, db_path, event_count, db_size_bytes,
+        and writable flag. Useful for monitoring and diagnostics.
+        """
+        result: Dict[str, Any] = {
+            "status": "unknown",
+            "db_path": self.db_path,
+            "event_count": 0,
+            "db_size_bytes": 0,
+            "writable": False,
+        }
+        try:
+            result["event_count"] = self.get_total_count()
+            result["db_size_bytes"] = os.path.getsize(self.db_path) if os.path.exists(self.db_path) else 0
+
+            # Check write capability with a no-op
+            with self._cursor() as cur:
+                cur.execute("SELECT 1")
+            result["writable"] = True
+            result["status"] = "healthy"
+        except Exception as exc:
+            result["status"] = "unhealthy"
+            result["error"] = str(exc)
+        return result
+
+    def get_summary(self, since: Optional[str] = None) -> Dict[str, Any]:
+        """Get a high-level summary of the event store.
+
+        Returns total events, failures, reliability score, top root causes,
+        and event type breakdown.
+        """
+        total = self.get_total_count(since)
+        failures = self.get_failure_count(since)
+        reliability = self.get_reliability_score(since)
+        breakdown = self.get_failure_breakdown(since)
+        types = self.get_event_type_breakdown(since)
+
+        # Compute average duration
+        query = "SELECT AVG(duration_ms) FROM events WHERE duration_ms IS NOT NULL"
+        params: list = []
+        if since:
+            query += " AND timestamp >= ?"
+            params.append(since)
+        with self._cursor() as cur:
+            cur.execute(query, params)
+            avg_duration = cur.fetchone()[0]
+
+        return {
+            "total_events": total,
+            "failures": failures,
+            "reliability_score": reliability,
+            "avg_duration_ms": round(avg_duration, 2) if avg_duration else None,
+            "top_root_causes": dict(list(breakdown.items())[:5]),
+            "event_types": types,
+        }
+
     def clear(self) -> None:
         """Delete all events."""
         with self._cursor() as cur:

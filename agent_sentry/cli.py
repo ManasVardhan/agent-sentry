@@ -129,6 +129,70 @@ def cmd_status(args):
     print()
 
 
+def cmd_health(args):
+    """Run a health check on the event store."""
+    store = get_store(args.db)
+    result = store.health_check()
+
+    status_icon = "OK" if result["status"] == "healthy" else "FAIL"
+    print()
+    print(f"  agent-sentry Health Check: [{status_icon}]")
+    print(f"  Status:       {result['status']}")
+    print(f"  Database:     {result['db_path']}")
+    print(f"  Events:       {result['event_count']}")
+
+    size = result["db_size_bytes"]
+    if size < 1024:
+        size_str = f"{size} B"
+    elif size < 1024 * 1024:
+        size_str = f"{size / 1024:.1f} KB"
+    else:
+        size_str = f"{size / (1024 * 1024):.1f} MB"
+    print(f"  DB Size:      {size_str}")
+    print(f"  Writable:     {'yes' if result['writable'] else 'no'}")
+
+    if result.get("error"):
+        print(f"  Error:        {result['error']}")
+    print()
+
+    sys.exit(0 if result["status"] == "healthy" else 1)
+
+
+def cmd_summary(args):
+    """Print a compact summary of the event store."""
+    store = get_store(args.db)
+
+    since = None
+    if args.hours:
+        since = (datetime.now(timezone.utc) - timedelta(hours=args.hours)).isoformat()
+
+    summary = store.get_summary(since)
+
+    period = f"last {args.hours}h" if args.hours else "all time"
+    print()
+    print(f"  agent-sentry Summary ({period})")
+    print("  " + "-" * 40)
+    print(f"  Events:        {summary['total_events']}")
+    print(f"  Failures:      {summary['failures']}")
+    print(f"  Reliability:   {summary['reliability_score']}%")
+    if summary["avg_duration_ms"] is not None:
+        print(f"  Avg Duration:  {summary['avg_duration_ms']}ms")
+
+    if summary["top_root_causes"]:
+        print()
+        print("  Top Root Causes:")
+        for cause, count in summary["top_root_causes"].items():
+            print(f"    {cause:<20} {count}")
+
+    if summary["event_types"]:
+        print()
+        print("  Event Types:")
+        for etype, counts in summary["event_types"].items():
+            total_t = counts["success"] + counts["failure"]
+            print(f"    {etype:<20} {total_t} ({counts['failure']} failed)")
+    print()
+
+
 def main():
     parser = argparse.ArgumentParser(
         prog="agent-sentry",
@@ -162,6 +226,18 @@ def main():
     # status
     status_parser = subparsers.add_parser("status", help="Show agent-sentry status and DB info")
     status_parser.set_defaults(func=cmd_status)
+
+    # health
+    health_parser = subparsers.add_parser("health", help="Run a health check on the event store")
+    health_parser.set_defaults(func=cmd_health)
+
+    # summary
+    summary_parser = subparsers.add_parser("summary", help="Print a compact event summary")
+    summary_parser.add_argument(
+        "--hours", type=int, default=None,
+        help="Hours to look back (default: all time)",
+    )
+    summary_parser.set_defaults(func=cmd_summary)
 
     args = parser.parse_args()
 

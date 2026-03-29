@@ -1,6 +1,6 @@
 """agent-sentry: Crash reporting for AI agents. Catch failures before your users do."""
 
-__version__ = "0.1.0"
+__version__ = "0.1.1"
 
 import inspect
 from functools import wraps
