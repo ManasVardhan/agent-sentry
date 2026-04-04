@@ -131,6 +131,84 @@ from agent_sentry import CallbackAlert
 configure(alert_channels=[CallbackAlert(lambda e: print(f"ALERT: {e['error_message']}"))])
 ```
 
+## Configuration examples
+
+Common setups beyond the defaults above.
+
+**Custom database location** — keep the SQLite file on a mounted volume or separate path (useful in Docker or when the cwd is read-only):
+
+```python
+from agent_sentry import configure, watch
+
+configure(db_path="/var/lib/myapp/agent_sentry_events.db")
+
+@watch
+def run_agent(task: str) -> str:
+    ...
+```
+
+**Slack and a generic webhook together** — both fire on failures:
+
+```python
+from agent_sentry import configure
+
+configure(
+    slack_webhook="https://hooks.slack.com/services/AAA/BBB/CCC",
+    webhook_url="https://api.mycompany.com/internal/agent-alerts",
+)
+```
+
+**Webhook with auth headers** — for APIs that expect a bearer token or API key:
+
+```python
+from agent_sentry import configure, WebhookAlert
+
+configure(
+    alert_channels=[
+        WebhookAlert(
+            "https://api.mycompany.com/v1/incidents",
+            headers={"Authorization": "Bearer YOUR_TOKEN_HERE"},
+        ),
+    ],
+)
+```
+
+**Email alerts (SMTP)** — for teams that want inbox notifications:
+
+```python
+from agent_sentry import configure, EmailAlert
+
+configure(
+    alert_channels=[
+        EmailAlert(
+            smtp_host="smtp.example.com",
+            smtp_port=587,
+            from_addr="alerts@example.com",
+            to_addrs=["oncall@example.com"],
+            username="alerts@example.com",
+            password="...",  # prefer env vars in real apps
+            use_tls=True,
+        ),
+    ],
+)
+```
+
+**Tagged tool calls** — filter or group failures in the dashboard by tool or pipeline:
+
+```python
+from agent_sentry import watch
+
+@watch(event_type="tool_call", tags=["retrieval", "prod"])
+def fetch_context(query: str) -> list[str]:
+    ...
+
+@watch(event_type="llm_call", tags=["summarization"])
+def summarize(docs: list[str]) -> str:
+    ...
+```
+
+Call `configure(...)` once at process startup (before decorated functions run) so the store and alert channels are shared for all `@watch` usage.
+
 ## CLI
 
 ```bash
