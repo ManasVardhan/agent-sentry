@@ -210,6 +210,67 @@ class EventStore:
                 result[et]["failure"] = row[2]
         return result
 
+    def get_top_failing_functions(
+        self,
+        limit: int = 10,
+        since: Optional[str] = None,
+    ) -> List[Dict[str, Any]]:
+        """Return the top failing functions ranked by failure count.
+
+        Each entry contains function_name, failures, total, and failure_rate (0-100).
+        Functions with no failures are excluded.
+
+        Args:
+            limit: Maximum number of functions to return.
+            since: Optional ISO timestamp lower bound.
+        """
+        query = (
+            "SELECT function_name, "
+            "SUM(CASE WHEN success = 0 THEN 1 ELSE 0 END) AS failures, "
+            "COUNT(*) AS total "
+            "FROM events WHERE function_name IS NOT NULL"
+        )
+        params: list = []
+        if since:
+            query += " AND timestamp >= ?"
+            params.append(since)
+        query += (
+            " GROUP BY function_name "
+            "HAVING failures > 0 "
+            "ORDER BY failures DESC, total DESC LIMIT ?"
+        )
+        params.append(limit)
+
+        with self._cursor() as cur:
+            cur.execute(query, params)
+            rows = cur.fetchall()
+
+        results: List[Dict[str, Any]] = []
+        for row in rows:
+            failures = int(row[1] or 0)
+            total = int(row[2] or 0)
+            rate = round((failures / total) * 100, 2) if total else 0.0
+            results.append(
+                {
+                    "function_name": row[0],
+                    "failures": failures,
+                    "total": total,
+                    "failure_rate": rate,
+                }
+            )
+        return results
+
+    def get_recent_failures(
+        self,
+        limit: int = 10,
+        since: Optional[str] = None,
+    ) -> List[Dict[str, Any]]:
+        """Return the most recent failed events.
+
+        Convenience wrapper around get_events with success=False.
+        """
+        return self.get_events(limit=limit, success=False, since=since)
+
     def health_check(self) -> Dict[str, Any]:
         """Run a health check on the event store.
 

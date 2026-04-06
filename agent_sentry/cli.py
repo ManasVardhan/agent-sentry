@@ -1,6 +1,7 @@
 """CLI for agent-sentry."""
 
 import argparse
+import json
 import subprocess
 import sys
 import os
@@ -193,6 +194,76 @@ def cmd_summary(args):
     print()
 
 
+def cmd_top(args):
+    """Print the top failing functions."""
+    store = get_store(args.db)
+
+    since = None
+    if args.hours:
+        since = (datetime.now(timezone.utc) - timedelta(hours=args.hours)).isoformat()
+
+    rows = store.get_top_failing_functions(limit=args.limit, since=since)
+
+    if args.json_output:
+        print(json.dumps(rows, indent=2))
+        return
+
+    period = f"last {args.hours}h" if args.hours else "all time"
+    print()
+    print(f"  Top Failing Functions ({period})")
+    print("  " + "-" * 60)
+    if not rows:
+        print("  No failures recorded.")
+        print()
+        return
+
+    print(f"  {'Function':<32} {'Fails':>6} {'Total':>6} {'Rate':>8}")
+    print("  " + "-" * 60)
+    for row in rows:
+        name = row["function_name"]
+        if len(name) > 32:
+            name = name[:29] + "..."
+        print(
+            f"  {name:<32} {row['failures']:>6} {row['total']:>6} {row['failure_rate']:>7}%"
+        )
+    print()
+
+
+def cmd_tail(args):
+    """Print the most recent failed events."""
+    store = get_store(args.db)
+
+    since = None
+    if args.hours:
+        since = (datetime.now(timezone.utc) - timedelta(hours=args.hours)).isoformat()
+
+    events = store.get_recent_failures(limit=args.limit, since=since)
+
+    if args.json_output:
+        print(json.dumps(events, indent=2, default=str))
+        return
+
+    period = f"last {args.hours}h" if args.hours else "all time"
+    print()
+    print(f"  Recent Failures ({period})")
+    print("  " + "-" * 60)
+    if not events:
+        print("  No failures recorded.")
+        print()
+        return
+
+    for event in events:
+        ts = (event.get("timestamp") or "")[:19]
+        func = event.get("function_name") or "unknown"
+        cause = event.get("root_cause") or "unknown"
+        err = (event.get("error_message") or "")[:80]
+        print(f"  [{ts}] {func}")
+        print(f"    Cause: {cause}")
+        if err:
+            print(f"    Error: {err}")
+    print()
+
+
 def main():
     parser = argparse.ArgumentParser(
         prog="agent-sentry",
@@ -238,6 +309,42 @@ def main():
         help="Hours to look back (default: all time)",
     )
     summary_parser.set_defaults(func=cmd_summary)
+
+    # top (most failing functions)
+    top_parser = subparsers.add_parser(
+        "top", help="Show top failing functions ranked by failure count"
+    )
+    top_parser.add_argument(
+        "--limit", type=int, default=10,
+        help="Maximum number of rows to display (default: 10)",
+    )
+    top_parser.add_argument(
+        "--hours", type=int, default=None,
+        help="Hours to look back (default: all time)",
+    )
+    top_parser.add_argument(
+        "--json-output", action="store_true",
+        help="Emit JSON instead of a formatted table",
+    )
+    top_parser.set_defaults(func=cmd_top)
+
+    # tail (recent failures)
+    tail_parser = subparsers.add_parser(
+        "tail", help="Show the most recent failed events"
+    )
+    tail_parser.add_argument(
+        "--limit", type=int, default=10,
+        help="Maximum number of failures to display (default: 10)",
+    )
+    tail_parser.add_argument(
+        "--hours", type=int, default=None,
+        help="Hours to look back (default: all time)",
+    )
+    tail_parser.add_argument(
+        "--json-output", action="store_true",
+        help="Emit JSON instead of human-readable output",
+    )
+    tail_parser.set_defaults(func=cmd_tail)
 
     args = parser.parse_args()
 
