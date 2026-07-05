@@ -264,6 +264,36 @@ def cmd_tail(args):
     print()
 
 
+def cmd_export(args):
+    """Export events to JSON or CSV."""
+    store = get_store(args.db)
+
+    since = None
+    if args.hours:
+        since = (datetime.now(timezone.utc) - timedelta(hours=args.hours)).isoformat()
+
+    success = False if args.failures_only else None
+
+    try:
+        text = store.export_events(
+            fmt=args.format,
+            since=since,
+            success=success,
+            event_type=args.event_type,
+            limit=args.limit,
+        )
+    except ValueError as exc:
+        print(f"Error: {exc}")
+        sys.exit(1)
+
+    if args.output:
+        with open(args.output, "w") as f:
+            f.write(text)
+        print(f"Exported events to {args.output} ({args.format})")
+    else:
+        print(text, end="" if args.format == "csv" else "\n")
+
+
 def main():
     parser = argparse.ArgumentParser(
         prog="agent-sentry",
@@ -345,6 +375,36 @@ def main():
         help="Emit JSON instead of human-readable output",
     )
     tail_parser.set_defaults(func=cmd_tail)
+
+    # export (JSON/CSV dump of events)
+    export_parser = subparsers.add_parser(
+        "export", help="Export events to JSON or CSV"
+    )
+    export_parser.add_argument(
+        "--format", choices=["json", "csv"], default="json",
+        help="Export format (default: json)",
+    )
+    export_parser.add_argument(
+        "--output", "-o", default=None,
+        help="Output file (prints to stdout if omitted)",
+    )
+    export_parser.add_argument(
+        "--hours", type=int, default=None,
+        help="Hours to look back (default: all time)",
+    )
+    export_parser.add_argument(
+        "--event-type", default=None,
+        help="Filter by event type (e.g. llm_call, tool_call)",
+    )
+    export_parser.add_argument(
+        "--failures-only", action="store_true",
+        help="Export only failed events",
+    )
+    export_parser.add_argument(
+        "--limit", type=int, default=10000,
+        help="Maximum number of events to export (default: 10000)",
+    )
+    export_parser.set_defaults(func=cmd_export)
 
     args = parser.parse_args()
 

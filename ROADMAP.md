@@ -12,12 +12,12 @@
 - [x] CLI (dashboard, report, clear)
 
 ## v0.2.0
-- [ ] Async function support (`@watch` on async functions)
+- [x] Async function support (`@watch` on async functions)
+- [x] Event export (JSON, CSV) via `agent-sentry export` with format, output file, hours, event type, failures-only, and limit options
 - [ ] CrewAI integration
 - [ ] AutoGen integration
 - [ ] LlamaIndex integration
 - [ ] Cost tracking dashboard panel
-- [ ] Event export (JSON, CSV)
 - [ ] Retry pattern detection
 
 ## v0.3.0

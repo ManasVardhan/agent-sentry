@@ -137,7 +137,23 @@ configure(alert_channels=[CallbackAlert(lambda e: print(f"ALERT: {e['error_messa
 agent-sentry dashboard          # Launch Streamlit dashboard
 agent-sentry report             # Terminal report (last 24h)
 agent-sentry report --hours 168 # Last 7 days
+agent-sentry summary            # Compact event summary
+agent-sentry status             # DB info and status
+agent-sentry health             # Health check (exit 0/1, CI-friendly)
+agent-sentry top                # Top failing functions
+agent-sentry tail               # Most recent failures
+agent-sentry export             # Dump events as JSON to stdout
 agent-sentry clear              # Clear all events
+```
+
+### Exporting events
+
+Ship events to other tools or archive them with `export`:
+
+```bash
+agent-sentry export --format csv -o events.csv        # CSV file
+agent-sentry export --failures-only --hours 24        # Recent failures as JSON
+agent-sentry export --event-type llm_call --limit 500 # Filter by event type
 ```
 
 ## Architecture

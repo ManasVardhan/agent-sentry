@@ -329,6 +329,61 @@ class EventStore:
             "event_types": types,
         }
 
+    def export_events(
+        self,
+        fmt: str = "json",
+        since: Optional[str] = None,
+        success: Optional[bool] = None,
+        event_type: Optional[str] = None,
+        limit: int = 10000,
+    ) -> str:
+        """Serialize events to a JSON or CSV string for export.
+
+        Args:
+            fmt: Output format, "json" or "csv".
+            since: Optional ISO timestamp lower bound.
+            success: Filter by success (True), failure (False), or all (None).
+            event_type: Optional event type filter.
+            limit: Maximum number of events to export (default: 10000).
+
+        Returns:
+            Serialized events. JSON is a list of full event dicts;
+            CSV flattens core fields with nested values as JSON strings.
+
+        Raises:
+            ValueError: If fmt is not "json" or "csv".
+        """
+        if fmt not in ("json", "csv"):
+            raise ValueError(f"Unsupported export format: {fmt}")
+
+        events = self.get_events(
+            limit=limit, event_type=event_type, success=success, since=since
+        )
+
+        if fmt == "json":
+            return json.dumps(events, indent=2, default=str)
+
+        import csv
+        import io
+
+        columns = [
+            "event_id", "timestamp", "event_type", "function_name",
+            "success", "duration_ms", "error_type", "error_message",
+            "root_cause", "cost", "token_usage", "tags",
+        ]
+        buf = io.StringIO()
+        writer = csv.writer(buf)
+        writer.writerow(columns)
+        for event in events:
+            row = []
+            for col in columns:
+                value = event.get(col)
+                if isinstance(value, (dict, list)):
+                    value = json.dumps(value)
+                row.append(value)
+            writer.writerow(row)
+        return buf.getvalue()
+
     def clear(self) -> None:
         """Delete all events."""
         with self._cursor() as cur:
