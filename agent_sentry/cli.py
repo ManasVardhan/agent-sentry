@@ -294,6 +294,76 @@ def cmd_export(args):
         print(text, end="" if args.format == "csv" else "\n")
 
 
+def cmd_retries(args):
+    """Detect and display retry patterns."""
+    from .retries import detect_retry_sequences, summarize_retries
+
+    store = get_store(args.db)
+
+    since = None
+    if args.hours:
+        since = (datetime.now(timezone.utc) - timedelta(hours=args.hours)).isoformat()
+
+    events = store.get_events(limit=args.limit, since=since)
+
+    try:
+        sequences = detect_retry_sequences(
+            events, window_seconds=args.window, min_attempts=args.min_attempts
+        )
+    except ValueError as exc:
+        print(f"Error: {exc}")
+        sys.exit(1)
+
+    summary = summarize_retries(sequences)
+
+    if args.json_output:
+        print(json.dumps(
+            {"summary": summary, "sequences": [s.to_dict() for s in sequences]},
+            indent=2,
+        ))
+        return
+
+    period = f"last {args.hours}h" if args.hours else "all time"
+    print()
+    print(f"  Retry Patterns ({period}, window {args.window:g}s)")
+    print("  " + "-" * 66)
+    if not sequences:
+        print("  No retry patterns detected.")
+        print()
+        return
+
+    print(f"  {'Function':<28} {'Tries':>5} {'Fails':>5} {'Outcome':<10} {'Wasted':>9}")
+    print("  " + "-" * 66)
+    for seq in sequences:
+        name = seq.function_name
+        if len(name) > 28:
+            name = name[:25] + "..."
+        wasted = f"{seq.wasted_duration_ms / 1000:.1f}s"
+        print(
+            f"  {name:<28} {seq.attempts:>5} {seq.failures:>5} "
+            f"{seq.outcome:<10} {wasted:>9}"
+        )
+        causes = ", ".join(f"{c} x{n}" for c, n in seq.root_causes.items())
+        if causes:
+            print(f"    Causes: {causes}")
+
+    print()
+    print(
+        f"  Sequences: {summary['total_sequences']} | "
+        f"Recovered: {summary['recovered']} | "
+        f"Exhausted: {summary['exhausted']} | "
+        f"Recovery rate: {summary['recovery_rate']}%"
+    )
+    wasted_s = summary["total_wasted_duration_ms"] / 1000
+    line = f"  Wasted time: {wasted_s:.1f}s"
+    if summary["total_wasted_cost"]:
+        line += f" | Wasted cost: ${summary['total_wasted_cost']:.4f}"
+    print(line)
+    if summary["most_retried_function"]:
+        print(f"  Most retried: {summary['most_retried_function']}")
+    print()
+
+
 def main():
     parser = argparse.ArgumentParser(
         prog="agent-sentry",
@@ -405,6 +475,32 @@ def main():
         help="Maximum number of events to export (default: 10000)",
     )
     export_parser.set_defaults(func=cmd_export)
+
+    # retries (retry pattern detection)
+    retries_parser = subparsers.add_parser(
+        "retries", help="Detect retry patterns (repeated failing calls)"
+    )
+    retries_parser.add_argument(
+        "--window", type=float, default=60.0,
+        help="Max seconds between attempts in a sequence (default: 60)",
+    )
+    retries_parser.add_argument(
+        "--min-attempts", type=int, default=2,
+        help="Minimum calls to count as a retry sequence (default: 2)",
+    )
+    retries_parser.add_argument(
+        "--hours", type=int, default=None,
+        help="Hours to look back (default: all time)",
+    )
+    retries_parser.add_argument(
+        "--limit", type=int, default=10000,
+        help="Maximum number of events to analyze (default: 10000)",
+    )
+    retries_parser.add_argument(
+        "--json-output", action="store_true",
+        help="Emit JSON instead of a formatted table",
+    )
+    retries_parser.set_defaults(func=cmd_retries)
 
     args = parser.parse_args()
 

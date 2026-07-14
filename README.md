@@ -65,6 +65,7 @@ Traditional monitoring sees HTTP 200s and thinks everything is fine. But your ag
 | **Cost tracking** | Token usage and estimated spend per call. |
 | **Reliability score** | Track agent health over time, like a credit score. |
 | **Alerts** | Slack, webhooks, email, or custom callbacks. |
+| **Retry pattern detection** | Spot retry storms and flaky functions, with wasted time and cost per sequence. |
 | **CLI** | Terminal reports without opening a browser. |
 | **Zero config** | One decorator. Done. |
 
@@ -143,6 +144,7 @@ agent-sentry health             # Health check (exit 0/1, CI-friendly)
 agent-sentry top                # Top failing functions
 agent-sentry tail               # Most recent failures
 agent-sentry export             # Dump events as JSON to stdout
+agent-sentry retries            # Detect retry patterns (repeated failing calls)
 agent-sentry clear              # Clear all events
 ```
 
@@ -155,6 +157,24 @@ agent-sentry export --format csv -o events.csv        # CSV file
 agent-sentry export --failures-only --hours 24        # Recent failures as JSON
 agent-sentry export --event-type llm_call --limit 500 # Filter by event type
 ```
+
+### Retry pattern detection
+
+Find functions stuck in retry loops. A retry sequence is a failed call
+followed by more calls to the same function within a time window. Sequences
+either recover (final attempt succeeds) or exhaust (caller gives up):
+
+```bash
+agent-sentry retries                      # All time, 60s window
+agent-sentry retries --hours 24           # Last day only
+agent-sentry retries --window 30          # Tighter 30s retry window
+agent-sentry retries --min-attempts 3     # Only sequences with 3+ calls
+agent-sentry retries --json-output        # Machine-readable output
+```
+
+Output includes attempts, failures, outcome, wasted time and cost per
+sequence, root cause breakdowns, and an overall recovery rate. Also available
+in Python via `detect_retry_sequences` and `summarize_retries`.
 
 ## Architecture
 

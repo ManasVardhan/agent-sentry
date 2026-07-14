@@ -18,6 +18,7 @@ from .alerts import (
     get_alert_manager,
 )
 from .analysis import RootCause, classify_error
+from .retries import RetrySequence, detect_retry_sequences, summarize_retries
 
 
 def watch(
@@ -132,6 +133,9 @@ __all__ = [
     "CallbackAlert",
     "RootCause",
     "classify_error",
+    "RetrySequence",
+    "detect_retry_sequences",
+    "summarize_retries",
     "get_store",
     "get_capture",
     "reset_capture",

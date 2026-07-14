@@ -18,7 +18,7 @@
 - [ ] AutoGen integration
 - [ ] LlamaIndex integration
 - [ ] Cost tracking dashboard panel
-- [ ] Retry pattern detection
+- [x] Retry pattern detection via `agent-sentry retries` with window, min-attempts, hours, and JSON output options, plus `detect_retry_sequences` and `summarize_retries` in the Python API
 
 ## v0.3.0
 - [ ] PostgreSQL storage backend
