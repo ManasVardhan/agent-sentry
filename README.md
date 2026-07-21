@@ -66,6 +66,7 @@ Traditional monitoring sees HTTP 200s and thinks everything is fine. But your ag
 | **Reliability score** | Track agent health over time, like a credit score. |
 | **Alerts** | Slack, webhooks, email, or custom callbacks. |
 | **Retry pattern detection** | Spot retry storms and flaky functions, with wasted time and cost per sequence. |
+| **Custom classifiers** | Register your own root cause labels with regex patterns or predicates. They run before the built-ins. |
 | **CLI** | Terminal reports without opening a browser. |
 | **Zero config** | One decorator. Done. |
 
@@ -105,6 +106,33 @@ def search_web(query):
 | `silent_failure` | No error, but empty/null results |
 | `network_error` | Connection refused, DNS, SSL |
 | `wrong_tool` | Agent picked the wrong tool |
+
+### Custom Classifiers
+
+Add your own root cause labels for domain-specific failures. Custom
+classifiers run before the built-in patterns, so they can also override
+a built-in classification:
+
+```python
+from agent_sentry import register_classifier
+
+# Match on error text with regex patterns (case-insensitive)
+register_classifier("billing_error", patterns=[r"card\s+declined", r"payment"])
+
+# Or match with a predicate over the whole failure
+register_classifier(
+    "slow_call",
+    predicate=lambda msg, typ, result, duration_ms, meta: bool(
+        duration_ms and duration_ms > 10_000
+    ),
+)
+```
+
+From then on, every captured failure that matches is stored, reported,
+and alerted with your label instead of a generic one. Manage the
+registry with `list_classifiers()`, `unregister_classifier(name)`, and
+`clear_classifiers()`. A classifier predicate that raises is treated as
+no-match, so a buggy classifier can never break event capture.
 
 ## Performance
 

@@ -1,7 +1,8 @@
 """Root cause classification for agent failures."""
 
 import re
-from typing import Optional, Dict, Any
+from dataclasses import dataclass, field
+from typing import Any, Callable, Dict, List, Optional, Pattern, Sequence
 
 
 class RootCause:
@@ -97,6 +98,137 @@ _HALLUCINATION_INDICATORS = [
 ]
 
 
+# ---------------------------------------------------------------------------
+# Custom classifiers
+# ---------------------------------------------------------------------------
+
+# Signature: (error_message, error_type, result, duration_ms, metadata) -> bool
+ClassifierPredicate = Callable[
+    [Optional[str], Optional[str], Any, Optional[float], Optional[Dict[str, Any]]],
+    bool,
+]
+
+
+@dataclass
+class CustomClassifier:
+    """A user-defined root cause classifier.
+
+    Matches when any compiled pattern is found in the combined error text
+    (error message plus exception type), or when the predicate returns a
+    truthy value. Custom classifiers run before the built-in patterns, so
+    they can override built-in classifications.
+
+    Attributes:
+        name: The root cause label returned when this classifier matches.
+        patterns: Compiled case-insensitive regex patterns.
+        predicate: Optional callable receiving (error_message, error_type,
+            result, duration_ms, metadata) and returning a bool.
+    """
+
+    name: str
+    patterns: List[Pattern[str]] = field(default_factory=list)
+    predicate: Optional[ClassifierPredicate] = None
+
+    def matches(
+        self,
+        error_text: str,
+        error_message: Optional[str],
+        error_type: Optional[str],
+        result: Any,
+        duration_ms: Optional[float],
+        metadata: Optional[Dict[str, Any]],
+    ) -> bool:
+        """Check whether this classifier matches the failure.
+
+        Predicate exceptions are swallowed and treated as no-match so a
+        buggy classifier can never break event capture.
+        """
+        for pattern in self.patterns:
+            if pattern.search(error_text):
+                return True
+        if self.predicate is not None:
+            try:
+                return bool(
+                    self.predicate(error_message, error_type, result, duration_ms, metadata)
+                )
+            except Exception:
+                return False
+        return False
+
+
+_custom_classifiers: List[CustomClassifier] = []
+
+
+def register_classifier(
+    name: str,
+    patterns: Optional[Sequence[str]] = None,
+    predicate: Optional[ClassifierPredicate] = None,
+) -> CustomClassifier:
+    """Register a custom root cause classifier.
+
+    Custom classifiers are checked in registration order before the
+    built-in patterns, so they can both add domain-specific causes and
+    override built-in classifications.
+
+        register_classifier("billing_error", patterns=[r"payment", r"card declined"])
+        register_classifier("slow_call", predicate=lambda msg, typ, res, dur, meta:
+                            bool(dur and dur > 10000))
+
+    Args:
+        name: Root cause label to return on match (stripped, non-empty).
+        patterns: Regex pattern strings, compiled case-insensitively.
+        predicate: Callable receiving (error_message, error_type, result,
+            duration_ms, metadata) and returning a bool.
+
+    Returns:
+        The registered CustomClassifier.
+
+    Raises:
+        ValueError: If the name is empty or already registered, if neither
+            patterns nor predicate is provided, or if a pattern is invalid.
+    """
+    label = (name or "").strip()
+    if not label:
+        raise ValueError("Classifier name must be a non-empty string")
+    if any(c.name == label for c in _custom_classifiers):
+        raise ValueError(
+            f"Classifier '{label}' is already registered. "
+            "Call unregister_classifier first to replace it."
+        )
+    if not patterns and predicate is None:
+        raise ValueError("Provide at least one pattern or a predicate")
+
+    compiled: List[Pattern[str]] = []
+    for raw in patterns or []:
+        try:
+            compiled.append(re.compile(raw, re.IGNORECASE))
+        except re.error as exc:
+            raise ValueError(f"Invalid regex pattern {raw!r}: {exc}") from exc
+
+    classifier = CustomClassifier(name=label, patterns=compiled, predicate=predicate)
+    _custom_classifiers.append(classifier)
+    return classifier
+
+
+def unregister_classifier(name: str) -> bool:
+    """Remove a custom classifier by name. Returns True if it was found."""
+    for i, classifier in enumerate(_custom_classifiers):
+        if classifier.name == name:
+            del _custom_classifiers[i]
+            return True
+    return False
+
+
+def list_classifiers() -> List[CustomClassifier]:
+    """Return registered custom classifiers in evaluation order."""
+    return list(_custom_classifiers)
+
+
+def clear_classifiers() -> None:
+    """Remove all registered custom classifiers."""
+    _custom_classifiers.clear()
+
+
 def classify_error(
     error_message: Optional[str] = None,
     error_type: Optional[str] = None,
@@ -120,6 +252,13 @@ def classify_error(
         str(error_message or ""),
         str(error_type or ""),
     ])).lower()
+
+    # Custom classifiers run first so they can override built-ins
+    for classifier in _custom_classifiers:
+        if classifier.matches(
+            combined_text, error_message, error_type, result, duration_ms, metadata
+        ):
+            return classifier.name
 
     # Check error patterns
     for cause, patterns in _ERROR_PATTERNS:

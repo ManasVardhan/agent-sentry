@@ -17,7 +17,15 @@ from .alerts import (
     CallbackAlert,
     get_alert_manager,
 )
-from .analysis import RootCause, classify_error
+from .analysis import (
+    CustomClassifier,
+    RootCause,
+    classify_error,
+    clear_classifiers,
+    list_classifiers,
+    register_classifier,
+    unregister_classifier,
+)
 from .retries import RetrySequence, detect_retry_sequences, summarize_retries
 
 
@@ -133,6 +141,11 @@ __all__ = [
     "CallbackAlert",
     "RootCause",
     "classify_error",
+    "CustomClassifier",
+    "register_classifier",
+    "unregister_classifier",
+    "list_classifiers",
+    "clear_classifiers",
     "RetrySequence",
     "detect_retry_sequences",
     "summarize_retries",
