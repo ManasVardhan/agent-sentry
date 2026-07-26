@@ -201,3 +201,25 @@ class TestLargeDataset:
 
         breakdown = store.get_failure_breakdown()
         assert breakdown["timeout"] == 200
+
+
+class TestBareFilenameDbPath:
+    def test_relative_filename_without_directory(self, tmp_path, monkeypatch):
+        """A bare filename like 'demo.db' must not crash on makedirs('')."""
+        monkeypatch.chdir(tmp_path)
+        store = EventStore("demo.db")
+        store.store_event({
+            "event_id": "rel-1",
+            "event_type": "function_call",
+            "function_name": "f",
+            "success": True,
+        })
+        assert store.get_total_count() == 1
+        assert (tmp_path / "demo.db").exists()
+
+    def test_get_store_with_bare_filename(self, tmp_path, monkeypatch):
+        """get_store with a bare relative filename should work too."""
+        monkeypatch.chdir(tmp_path)
+        store = get_store("cli.db")
+        assert store.get_total_count() == 0
+        assert (tmp_path / "cli.db").exists()
