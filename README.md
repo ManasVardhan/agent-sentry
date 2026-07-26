@@ -66,6 +66,7 @@ Traditional monitoring sees HTTP 200s and thinks everything is fine. But your ag
 | **Reliability score** | Track agent health over time, like a credit score. |
 | **Alerts** | Slack, webhooks, email, or custom callbacks. |
 | **Retry pattern detection** | Spot retry storms and flaky functions, with wasted time and cost per sequence. |
+| **Failure correlation** | Cluster failures in time and find functions that fail together (cascading failures). |
 | **Custom classifiers** | Register your own root cause labels with regex patterns or predicates. They run before the built-ins. |
 | **CLI** | Terminal reports without opening a browser. |
 | **Zero config** | One decorator. Done. |
@@ -173,6 +174,7 @@ agent-sentry top                # Top failing functions
 agent-sentry tail               # Most recent failures
 agent-sentry export             # Dump events as JSON to stdout
 agent-sentry retries            # Detect retry patterns (repeated failing calls)
+agent-sentry correlate          # Failure clusters and correlated function pairs
 agent-sentry clear              # Clear all events
 ```
 
@@ -203,6 +205,29 @@ agent-sentry retries --json-output        # Machine-readable output
 Output includes attempts, failures, outcome, wasted time and cost per
 sequence, root cause breakdowns, and an overall recovery rate. Also available
 in Python via `detect_retry_sequences` and `summarize_retries`.
+
+### Failure correlation analysis
+
+One broken dependency often takes down several agent functions at once.
+`correlate` groups failures that happen close together in time into
+clusters, regardless of which function failed, then scores function pairs
+by how often they land in the same cluster (Jaccard similarity, 1.0 means
+the two functions only ever fail together):
+
+```bash
+agent-sentry correlate                    # All time, 30s cluster window
+agent-sentry correlate --hours 24         # Last day only
+agent-sentry correlate --window 60        # Wider 60s cluster window
+agent-sentry correlate --min-failures 3   # Only clusters with 3+ failures
+agent-sentry correlate --min-co 3         # Pairs must share 3+ clusters
+agent-sentry correlate --json-output      # Machine-readable output
+```
+
+Output lists each cluster (start, size, span, functions, root causes),
+the correlated function pairs with scores, and a summary with the most
+involved function and the top pair. Also available in Python via
+`find_failure_clusters`, `correlate_failures`, and
+`summarize_correlations`.
 
 ## Architecture
 

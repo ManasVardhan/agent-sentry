@@ -27,6 +27,13 @@ from .analysis import (
     unregister_classifier,
 )
 from .retries import RetrySequence, detect_retry_sequences, summarize_retries
+from .correlation import (
+    FailureCluster,
+    FunctionCorrelation,
+    correlate_failures,
+    find_failure_clusters,
+    summarize_correlations,
+)
 
 
 def watch(
@@ -149,6 +156,11 @@ __all__ = [
     "RetrySequence",
     "detect_retry_sequences",
     "summarize_retries",
+    "FailureCluster",
+    "FunctionCorrelation",
+    "find_failure_clusters",
+    "correlate_failures",
+    "summarize_correlations",
     "get_store",
     "get_capture",
     "reset_capture",

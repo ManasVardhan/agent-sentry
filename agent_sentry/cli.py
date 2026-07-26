@@ -364,6 +364,90 @@ def cmd_retries(args):
     print()
 
 
+def cmd_correlate(args):
+    """Detect failure clusters and correlated function failures."""
+    from .correlation import (
+        correlate_failures,
+        find_failure_clusters,
+        summarize_correlations,
+    )
+
+    store = get_store(args.db)
+
+    since = None
+    if args.hours:
+        since = (datetime.now(timezone.utc) - timedelta(hours=args.hours)).isoformat()
+
+    events = store.get_events(limit=args.limit, since=since)
+
+    try:
+        clusters = find_failure_clusters(
+            events, window_seconds=args.window, min_failures=args.min_failures
+        )
+        correlations = correlate_failures(clusters, min_co_occurrences=args.min_co)
+    except ValueError as exc:
+        print(f"Error: {exc}")
+        sys.exit(1)
+
+    summary = summarize_correlations(clusters, correlations)
+
+    if args.json_output:
+        print(json.dumps(
+            {
+                "summary": summary,
+                "clusters": [c.to_dict() for c in clusters],
+                "correlations": [c.to_dict() for c in correlations],
+            },
+            indent=2,
+        ))
+        return
+
+    period = f"last {args.hours}h" if args.hours else "all time"
+    print()
+    print(f"  Failure Correlation ({period}, window {args.window:g}s)")
+    print("  " + "-" * 66)
+    if not clusters:
+        print("  No failure clusters detected.")
+        print()
+        return
+
+    print(f"  {'Start':<20} {'Fails':>5} {'Span':>7}  Functions")
+    print("  " + "-" * 66)
+    for cluster in clusters:
+        start = cluster.start_timestamp[:19]
+        span = f"{cluster.span_seconds:.1f}s"
+        funcs = ", ".join(f"{n} x{c}" for n, c in sorted(cluster.functions.items()))
+        if len(funcs) > 34:
+            funcs = funcs[:31] + "..."
+        print(f"  {start:<20} {cluster.failures:>5} {span:>7}  {funcs}")
+        causes = ", ".join(f"{c} x{n}" for c, n in sorted(cluster.root_causes.items()))
+        if causes:
+            print(f"    Causes: {causes}")
+
+    if correlations:
+        print()
+        print("  Correlated Function Pairs:")
+        print("  " + "-" * 66)
+        print(f"  {'Pair':<44} {'Together':>8} {'Score':>7}")
+        for corr in correlations:
+            pair = f"{corr.function_a} + {corr.function_b}"
+            if len(pair) > 44:
+                pair = pair[:41] + "..."
+            print(f"  {pair:<44} {corr.co_occurrences:>8} {corr.score:>7.2f}")
+
+    print()
+    print(
+        f"  Clusters: {summary['total_clusters']} | "
+        f"Multi-function: {summary['multi_function_clusters']} | "
+        f"Largest: {summary['largest_cluster']} failures"
+    )
+    if summary["most_involved_function"]:
+        print(f"  Most involved: {summary['most_involved_function']}")
+    if summary["top_pair"]:
+        print(f"  Top pair: {summary['top_pair']}")
+    print()
+
+
 def main():
     parser = argparse.ArgumentParser(
         prog="agent-sentry",
@@ -501,6 +585,36 @@ def main():
         help="Emit JSON instead of a formatted table",
     )
     retries_parser.set_defaults(func=cmd_retries)
+
+    # correlate (failure correlation analysis)
+    correlate_parser = subparsers.add_parser(
+        "correlate", help="Detect failure clusters and correlated function failures"
+    )
+    correlate_parser.add_argument(
+        "--window", type=float, default=30.0,
+        help="Max seconds between failures in a cluster (default: 30)",
+    )
+    correlate_parser.add_argument(
+        "--min-failures", type=int, default=2,
+        help="Minimum failures for a cluster to count (default: 2)",
+    )
+    correlate_parser.add_argument(
+        "--min-co", type=int, default=2,
+        help="Minimum shared clusters to report a function pair (default: 2)",
+    )
+    correlate_parser.add_argument(
+        "--hours", type=int, default=None,
+        help="Hours to look back (default: all time)",
+    )
+    correlate_parser.add_argument(
+        "--limit", type=int, default=10000,
+        help="Maximum number of events to analyze (default: 10000)",
+    )
+    correlate_parser.add_argument(
+        "--json-output", action="store_true",
+        help="Emit JSON instead of a formatted table",
+    )
+    correlate_parser.set_defaults(func=cmd_correlate)
 
     args = parser.parse_args()
 

@@ -23,7 +23,7 @@
 ## v0.3.0
 - [ ] PostgreSQL storage backend
 - [ ] Multi-agent session tracking
-- [ ] Failure correlation analysis
+- [x] Failure correlation analysis via `agent-sentry correlate` with window, min-failures, min-co, hours, and JSON output options, plus `find_failure_clusters`, `correlate_failures`, and `summarize_correlations` in the Python API
 - [x] Custom root cause classifiers via `register_classifier` with regex patterns and/or predicates, running ahead of built-in patterns, plus `unregister_classifier`, `list_classifiers`, and `clear_classifiers`
 - [ ] PagerDuty and Opsgenie alert channels
 - [ ] Prometheus metrics endpoint
