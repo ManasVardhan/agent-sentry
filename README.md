@@ -88,6 +88,12 @@ response = client.messages_create(model="claude-sonnet-4-20250514", messages=[..
 from agent_sentry.integrations.langchain import AgentSentryCallbackHandler
 llm = ChatOpenAI(callbacks=[AgentSentryCallbackHandler()])
 
+# LlamaIndex
+from llama_index.core import Settings
+from llama_index.core.callbacks import CallbackManager
+from agent_sentry.integrations.llamaindex import AgentSentryLlamaIndexHandler
+Settings.callback_manager = CallbackManager([AgentSentryLlamaIndexHandler()])
+
 # Any function
 @watch(event_type="tool_call", tags=["search"])
 def search_web(query):
@@ -250,7 +256,7 @@ All data stays local. SQLite with WAL mode. Thread-safe. No external services re
 ```bash
 pip install ai-agent-sentry                                # Core
 pip install ai-agent-sentry[dashboard]                     # + Streamlit dashboard
-pip install ai-agent-sentry[openai,anthropic,langchain]    # + Framework integrations
+pip install ai-agent-sentry[openai,anthropic,langchain,llamaindex]  # + Framework integrations
 pip install ai-agent-sentry[all]                           # Everything
 ```
 

@@ -16,7 +16,7 @@
 - [x] Event export (JSON, CSV) via `agent-sentry export` with format, output file, hours, event type, failures-only, and limit options
 - [ ] CrewAI integration
 - [ ] AutoGen integration
-- [ ] LlamaIndex integration
+- [x] LlamaIndex integration via `AgentSentryLlamaIndexHandler` for LlamaIndex's callback manager: LLM calls with prompts, responses, and token usage, tool calls with input and result, queries and agent steps with duration, and exceptions captured as classified failures, with an optional `llamaindex` extra
 - [ ] Cost tracking dashboard panel
 - [x] Retry pattern detection via `agent-sentry retries` with window, min-attempts, hours, and JSON output options, plus `detect_retry_sequences` and `summarize_retries` in the Python API
 
