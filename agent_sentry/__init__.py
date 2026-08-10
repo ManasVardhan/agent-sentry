@@ -34,6 +34,7 @@ from .correlation import (
     find_failure_clusters,
     summarize_correlations,
 )
+from .costs import CostBucket, aggregate_costs, summarize_costs
 
 
 def watch(
@@ -161,6 +162,9 @@ __all__ = [
     "find_failure_clusters",
     "correlate_failures",
     "summarize_correlations",
+    "CostBucket",
+    "aggregate_costs",
+    "summarize_costs",
     "get_store",
     "get_capture",
     "reset_capture",

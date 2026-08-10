@@ -364,6 +364,74 @@ def cmd_retries(args):
     print()
 
 
+def cmd_costs(args):
+    """Display cost tracking analytics."""
+    from .costs import aggregate_costs, summarize_costs
+
+    store = get_store(args.db)
+
+    since = None
+    if args.hours:
+        since = (datetime.now(timezone.utc) - timedelta(hours=args.hours)).isoformat()
+
+    events = store.get_events(limit=args.limit, since=since)
+
+    try:
+        buckets = aggregate_costs(events, by=args.by)
+    except ValueError as exc:
+        print(f"Error: {exc}")
+        sys.exit(1)
+
+    summary = summarize_costs(events)
+
+    if args.json_output:
+        print(json.dumps(
+            {"summary": summary, "breakdown": [b.to_dict() for b in buckets[:args.top]]},
+            indent=2,
+        ))
+        return
+
+    period = f"last {args.hours}h" if args.hours else "all time"
+    print()
+    print(f"  Cost Tracking ({period}, by {args.by})")
+    print("  " + "-" * 66)
+    if not buckets:
+        print("  No cost data recorded.")
+        print("  Costs are captured automatically by the OpenAI and Anthropic")
+        print("  integrations, or by events that include a 'cost' field.")
+        print()
+        return
+
+    label = args.by.capitalize()
+    print(f"  {label:<32} {'Calls':>6} {'Tokens':>9} {'Cost':>10} {'Wasted':>9}")
+    print("  " + "-" * 66)
+    for bucket in buckets[:args.top]:
+        key = bucket.key
+        if len(key) > 32:
+            key = key[:29] + "..."
+        cost_s = f"${bucket.cost:.4f}"
+        wasted_s = f"${bucket.wasted_cost:.4f}"
+        print(
+            f"  {key:<32} {bucket.calls:>6} {bucket.tokens:>9} "
+            f"{cost_s:>10} {wasted_s:>9}"
+        )
+
+    print()
+    print(
+        f"  Total: ${summary['total_cost']:.4f} across "
+        f"{summary['tracked_calls']} tracked calls "
+        f"({summary['total_tokens']} tokens)"
+    )
+    if summary["wasted_cost"]:
+        print(
+            f"  Wasted on failures: ${summary['wasted_cost']:.4f} "
+            f"({summary['wasted_pct']}% of spend)"
+        )
+    if summary["top_model"]:
+        print(f"  Top model: {summary['top_model']}")
+    print()
+
+
 def cmd_correlate(args):
     """Detect failure clusters and correlated function failures."""
     from .correlation import (
@@ -615,6 +683,32 @@ def main():
         help="Emit JSON instead of a formatted table",
     )
     correlate_parser.set_defaults(func=cmd_correlate)
+
+    # costs (spend analytics)
+    costs_parser = subparsers.add_parser(
+        "costs", help="Show LLM spend breakdown by model, function, or day"
+    )
+    costs_parser.add_argument(
+        "--by", choices=["model", "function", "day"], default="model",
+        help="Grouping key for the breakdown (default: model)",
+    )
+    costs_parser.add_argument(
+        "--top", type=int, default=10,
+        help="Maximum number of rows to display (default: 10)",
+    )
+    costs_parser.add_argument(
+        "--hours", type=int, default=None,
+        help="Hours to look back (default: all time)",
+    )
+    costs_parser.add_argument(
+        "--limit", type=int, default=10000,
+        help="Maximum number of events to analyze (default: 10000)",
+    )
+    costs_parser.add_argument(
+        "--json-output", action="store_true",
+        help="Emit JSON instead of a formatted table",
+    )
+    costs_parser.set_defaults(func=cmd_costs)
 
     args = parser.parse_args()
 

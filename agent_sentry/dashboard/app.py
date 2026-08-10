@@ -99,6 +99,48 @@ def run_dashboard(db_path: str = DEFAULT_DB_PATH):
 
     st.divider()
 
+    # Cost tracking panel
+    st.subheader("Cost Tracking")
+    from ..costs import aggregate_costs, summarize_costs
+
+    cost_events = store.get_events(limit=10000, since=since)
+    cost_summary = summarize_costs(cost_events)
+    if cost_summary["tracked_calls"]:
+        col1, col2, col3, col4 = st.columns(4)
+        with col1:
+            st.metric("Total Spend", f"${cost_summary['total_cost']:.4f}")
+        with col2:
+            st.metric("Tracked Calls", cost_summary["tracked_calls"])
+        with col3:
+            st.metric(
+                "Wasted on Failures",
+                f"${cost_summary['wasted_cost']:.4f}",
+                delta=f"{cost_summary['wasted_pct']}% of spend" if cost_summary["wasted_cost"] else None,
+                delta_color="inverse",
+            )
+        with col4:
+            st.metric("Total Tokens", f"{cost_summary['total_tokens']:,}")
+
+        col1, col2 = st.columns(2)
+        with col1:
+            st.caption("Spend by Model")
+            model_buckets = aggregate_costs(cost_events, by="model")
+            df = pd.DataFrame([b.to_dict() for b in model_buckets])
+            st.bar_chart(df.set_index("key")["cost"])
+        with col2:
+            st.caption("Spend by Day")
+            day_buckets = aggregate_costs(cost_events, by="day")
+            day_buckets.sort(key=lambda b: b.key)
+            df = pd.DataFrame([b.to_dict() for b in day_buckets])
+            st.bar_chart(df.set_index("key")["cost"])
+    else:
+        st.info(
+            "No cost data recorded. Costs are captured automatically by the "
+            "OpenAI and Anthropic integrations."
+        )
+
+    st.divider()
+
     # Failure rate over time
     st.subheader("Failure Rate Over Time")
     events = store.get_events(limit=1000, since=since)

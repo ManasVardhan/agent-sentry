@@ -181,6 +181,7 @@ agent-sentry tail               # Most recent failures
 agent-sentry export             # Dump events as JSON to stdout
 agent-sentry retries            # Detect retry patterns (repeated failing calls)
 agent-sentry correlate          # Failure clusters and correlated function pairs
+agent-sentry costs              # LLM spend breakdown by model, function, or day
 agent-sentry clear              # Clear all events
 ```
 
@@ -234,6 +235,25 @@ the correlated function pairs with scores, and a summary with the most
 involved function and the top pair. Also available in Python via
 `find_failure_clusters`, `correlate_failures`, and
 `summarize_correlations`.
+
+### Cost tracking
+
+The OpenAI and Anthropic wrappers estimate cost per call automatically.
+`costs` aggregates that into a spend report, and the dashboard shows the
+same numbers in a Cost Tracking panel:
+
+```bash
+agent-sentry costs                        # Spend by model, all time
+agent-sentry costs --by function          # Group by function name
+agent-sentry costs --by day               # Daily spend trend
+agent-sentry costs --hours 24             # Last day only
+agent-sentry costs --top 5                # Only the top 5 rows
+agent-sentry costs --json-output          # Machine-readable output
+```
+
+Output includes calls, tokens, cost, and wasted cost (spend on failed
+calls) per bucket, plus totals with the wasted percentage and top model.
+Also available in Python via `aggregate_costs` and `summarize_costs`.
 
 ## Architecture
 

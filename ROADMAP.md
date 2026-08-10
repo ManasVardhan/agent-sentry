@@ -17,7 +17,7 @@
 - [ ] CrewAI integration
 - [ ] AutoGen integration
 - [x] LlamaIndex integration via `AgentSentryLlamaIndexHandler` for LlamaIndex's callback manager: LLM calls with prompts, responses, and token usage, tool calls with input and result, queries and agent steps with duration, and exceptions captured as classified failures, with an optional `llamaindex` extra
-- [ ] Cost tracking dashboard panel
+- [x] Cost tracking analytics via `agent-sentry costs` with model, function, or day grouping, top-N, hours, and JSON output options, plus `aggregate_costs` and `summarize_costs` in the Python API and a Cost Tracking dashboard panel with total spend, wasted cost from failures, and spend-by-model and spend-by-day charts
 - [x] Retry pattern detection via `agent-sentry retries` with window, min-attempts, hours, and JSON output options, plus `detect_retry_sequences` and `summarize_retries` in the Python API
 
 ## v0.3.0
