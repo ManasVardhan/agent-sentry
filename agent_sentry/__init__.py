@@ -15,6 +15,8 @@ from .alerts import (
     SlackAlert,
     EmailAlert,
     CallbackAlert,
+    PagerDutyAlert,
+    OpsgenieAlert,
     get_alert_manager,
 )
 from .analysis import (
@@ -102,6 +104,8 @@ def configure(
     alert_channels: Optional[List[AlertChannel]] = None,
     webhook_url: Optional[str] = None,
     slack_webhook: Optional[str] = None,
+    pagerduty_routing_key: Optional[str] = None,
+    opsgenie_api_key: Optional[str] = None,
 ) -> EventCapture:
     """Configure agent-sentry with custom settings.
 
@@ -110,6 +114,9 @@ def configure(
         alert_channels: List of AlertChannel instances.
         webhook_url: URL for webhook alerts (convenience shortcut).
         slack_webhook: Slack webhook URL (convenience shortcut).
+        pagerduty_routing_key: PagerDuty Events API v2 routing key
+            (convenience shortcut).
+        opsgenie_api_key: Opsgenie API key (convenience shortcut).
 
     Returns:
         Configured EventCapture instance.
@@ -126,6 +133,12 @@ def configure(
 
     if slack_webhook:
         alert_manager.add_channel(SlackAlert(slack_webhook))
+
+    if pagerduty_routing_key:
+        alert_manager.add_channel(PagerDutyAlert(pagerduty_routing_key))
+
+    if opsgenie_api_key:
+        alert_manager.add_channel(OpsgenieAlert(opsgenie_api_key))
 
     cap = EventCapture(store=store, alert_manager=alert_manager)
 
@@ -147,6 +160,8 @@ __all__ = [
     "SlackAlert",
     "EmailAlert",
     "CallbackAlert",
+    "PagerDutyAlert",
+    "OpsgenieAlert",
     "RootCause",
     "classify_error",
     "CustomClassifier",

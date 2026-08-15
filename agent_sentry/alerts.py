@@ -192,6 +192,176 @@ class EmailAlert(AlertChannel):
             return False
 
 
+def _post_json(
+    url: str,
+    payload: Dict[str, Any],
+    headers: Optional[Dict[str, str]] = None,
+    timeout: int = 10,
+) -> bool:
+    """POST a JSON payload and return True on a 2xx/3xx response."""
+    data = json.dumps(payload).encode("utf-8")
+    all_headers = {"Content-Type": "application/json"}
+    if headers:
+        all_headers.update(headers)
+    req = Request(url, data=data, headers=all_headers, method="POST")
+    try:
+        with urlopen(req, timeout=timeout) as resp:
+            return resp.status < 400
+    except (URLError, OSError):
+        return False
+
+
+class PagerDutyAlert(AlertChannel):
+    """Send alerts to PagerDuty via the Events API v2.
+
+    Failures are triggered as PagerDuty events with the function name
+    and root cause in the summary and the full event details attached.
+    Events for the same function and root cause share a dedup key so
+    repeated failures update one incident instead of paging repeatedly.
+
+    Args:
+        routing_key: The integration (routing) key from a PagerDuty
+            Events API v2 integration.
+        severity: PagerDuty severity: critical, error, warning, or info
+            (default error).
+        source: Value for the event source field (default agent-sentry).
+        api_url: Override for the Events API endpoint.
+        timeout: HTTP request timeout in seconds (default 10).
+    """
+
+    DEFAULT_API_URL = "https://events.pagerduty.com/v2/enqueue"
+    _SEVERITIES = ("critical", "error", "warning", "info")
+
+    def __init__(
+        self,
+        routing_key: str,
+        severity: str = "error",
+        source: str = "agent-sentry",
+        api_url: Optional[str] = None,
+        timeout: int = 10,
+    ):
+        if severity not in self._SEVERITIES:
+            raise ValueError(
+                f"severity must be one of {', '.join(self._SEVERITIES)}, "
+                f"got '{severity}'"
+            )
+        self.routing_key = routing_key
+        self.severity = severity
+        self.source = source
+        self.api_url = api_url or self.DEFAULT_API_URL
+        self.timeout = timeout
+
+    def build_payload(self, event: Dict[str, Any]) -> Dict[str, Any]:
+        """Build the Events API v2 payload for a failure event."""
+        func_name = event.get("function_name", "unknown")
+        root_cause = event.get("root_cause", "unknown")
+        error_msg = event.get("error_message") or "No error message"
+
+        payload: Dict[str, Any] = {
+            "routing_key": self.routing_key,
+            "event_action": "trigger",
+            "dedup_key": f"agent-sentry/{func_name}/{root_cause}",
+            "payload": {
+                "summary": f"[agent-sentry] {func_name} failed: {root_cause}: {error_msg}"[:1024],
+                "source": self.source,
+                "severity": self.severity,
+                "custom_details": _format_payload(event),
+            },
+        }
+        timestamp = event.get("timestamp")
+        if timestamp:
+            payload["payload"]["timestamp"] = timestamp
+        return payload
+
+    def send(self, event: Dict[str, Any]) -> bool:
+        return _post_json(
+            self.api_url, self.build_payload(event), timeout=self.timeout
+        )
+
+
+class OpsgenieAlert(AlertChannel):
+    """Send alerts to Opsgenie via the Alert API.
+
+    Failures are created as Opsgenie alerts with the function name and
+    root cause in the message, the error and traceback in the
+    description, and the structured event attached as details. Alerts
+    for the same function and root cause share an alias so repeated
+    failures deduplicate into one alert.
+
+    Args:
+        api_key: An Opsgenie API key from an API integration.
+        priority: Opsgenie priority P1 through P5 (default P3).
+        tags: Optional tags to attach to created alerts.
+        eu: Use the EU service region endpoint (default False).
+        api_url: Override for the Alert API endpoint (takes precedence
+            over eu).
+        timeout: HTTP request timeout in seconds (default 10).
+    """
+
+    DEFAULT_API_URL = "https://api.opsgenie.com/v2/alerts"
+    EU_API_URL = "https://api.eu.opsgenie.com/v2/alerts"
+    _PRIORITIES = ("P1", "P2", "P3", "P4", "P5")
+
+    def __init__(
+        self,
+        api_key: str,
+        priority: str = "P3",
+        tags: Optional[List[str]] = None,
+        eu: bool = False,
+        api_url: Optional[str] = None,
+        timeout: int = 10,
+    ):
+        if priority not in self._PRIORITIES:
+            raise ValueError(
+                f"priority must be one of {', '.join(self._PRIORITIES)}, "
+                f"got '{priority}'"
+            )
+        self.api_key = api_key
+        self.priority = priority
+        self.tags = tags or ["agent-sentry"]
+        self.api_url = api_url or (self.EU_API_URL if eu else self.DEFAULT_API_URL)
+        self.timeout = timeout
+
+    def build_payload(self, event: Dict[str, Any]) -> Dict[str, Any]:
+        """Build the Alert API payload for a failure event."""
+        func_name = event.get("function_name", "unknown")
+        root_cause = event.get("root_cause", "unknown")
+        error_msg = event.get("error_message") or "No error message"
+
+        description = (
+            f"Function: {func_name}\n"
+            f"Root Cause: {root_cause}\n"
+            f"Error: {error_msg}\n"
+            f"Duration: {event.get('duration_ms', 0):.0f}ms\n"
+            f"Timestamp: {event.get('timestamp', 'unknown')}\n"
+            f"Event ID: {event.get('event_id', 'unknown')}\n"
+        )
+        if event.get("traceback"):
+            description += f"\nTraceback:\n{event['traceback']}\n"
+
+        details = {
+            key: "" if value is None else str(value)
+            for key, value in _format_payload(event).items()
+        }
+        return {
+            "message": f"[agent-sentry] {func_name} failed: {root_cause}"[:130],
+            "alias": f"agent-sentry/{func_name}/{root_cause}",
+            "description": description[:15000],
+            "priority": self.priority,
+            "tags": self.tags,
+            "details": details,
+            "source": "agent-sentry",
+        }
+
+    def send(self, event: Dict[str, Any]) -> bool:
+        return _post_json(
+            self.api_url,
+            self.build_payload(event),
+            headers={"Authorization": f"GenieKey {self.api_key}"},
+            timeout=self.timeout,
+        )
+
+
 class CallbackAlert(AlertChannel):
     """Send alerts to a custom callback function."""
 

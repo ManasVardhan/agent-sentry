@@ -25,7 +25,7 @@
 - [ ] Multi-agent session tracking
 - [x] Failure correlation analysis via `agent-sentry correlate` with window, min-failures, min-co, hours, and JSON output options, plus `find_failure_clusters`, `correlate_failures`, and `summarize_correlations` in the Python API
 - [x] Custom root cause classifiers via `register_classifier` with regex patterns and/or predicates, running ahead of built-in patterns, plus `unregister_classifier`, `list_classifiers`, and `clear_classifiers`
-- [ ] PagerDuty and Opsgenie alert channels
+- [x] PagerDuty and Opsgenie alert channels via `PagerDutyAlert` (Events API v2, severity and source options, incident dedup by function and root cause) and `OpsgenieAlert` (Alert API, priority, tags, EU region, alert dedup by alias), plus `pagerduty_routing_key` and `opsgenie_api_key` shortcuts on `configure`
 - [ ] Prometheus metrics endpoint
 
 ## v0.4.0

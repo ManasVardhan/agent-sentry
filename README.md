@@ -64,7 +64,7 @@ Traditional monitoring sees HTTP 200s and thinks everything is fine. But your ag
 | **Live dashboard** | Streamlit UI with failure rates, root causes, reliability scores, and cost tracking. |
 | **Cost tracking** | Token usage and estimated spend per call. |
 | **Reliability score** | Track agent health over time, like a credit score. |
-| **Alerts** | Slack, webhooks, email, or custom callbacks. |
+| **Alerts** | Slack, PagerDuty, Opsgenie, webhooks, email, or custom callbacks. |
 | **Retry pattern detection** | Spot retry storms and flaky functions, with wasted time and cost per sequence. |
 | **Failure correlation** | Cluster failures in time and find functions that fail together (cascading failures). |
 | **Custom classifiers** | Register your own root cause labels with regex patterns or predicates. They run before the built-ins. |
@@ -162,9 +162,28 @@ configure(slack_webhook="https://hooks.slack.com/services/YOUR/WEBHOOK/URL")
 # Webhooks
 configure(webhook_url="https://your-server.com/agent-alerts")
 
+# PagerDuty (Events API v2 routing key)
+configure(pagerduty_routing_key="YOUR_ROUTING_KEY")
+
+# Opsgenie (API key from an API integration)
+configure(opsgenie_api_key="YOUR_API_KEY")
+
 # Custom
 from agent_sentry import CallbackAlert
 configure(alert_channels=[CallbackAlert(lambda e: print(f"ALERT: {e['error_message']}"))])
+```
+
+PagerDuty and Opsgenie alerts deduplicate by function name and root
+cause, so a flapping agent updates one incident instead of paging on
+every failure. Both channels accept more control through their classes:
+
+```python
+from agent_sentry import OpsgenieAlert, PagerDutyAlert, configure
+
+configure(alert_channels=[
+    PagerDutyAlert("YOUR_ROUTING_KEY", severity="critical", source="checkout-agent"),
+    OpsgenieAlert("YOUR_API_KEY", priority="P1", tags=["prod"], eu=True),
+])
 ```
 
 ## CLI
@@ -265,7 +284,7 @@ EventCapture (intercepts calls, measures latency, catches errors)
     |
     +--> RootCauseClassifier (timeout? hallucination? rate limit?)
     +--> EventStore (SQLite, WAL mode, thread-safe)
-    +--> AlertManager (Slack, webhooks, email, callbacks)
+    +--> AlertManager (Slack, PagerDuty, Opsgenie, webhooks, email, callbacks)
     +--> Dashboard (Streamlit, reads from EventStore)
 ```
 
