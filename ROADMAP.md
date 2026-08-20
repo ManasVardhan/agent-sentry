@@ -26,7 +26,7 @@
 - [x] Failure correlation analysis via `agent-sentry correlate` with window, min-failures, min-co, hours, and JSON output options, plus `find_failure_clusters`, `correlate_failures`, and `summarize_correlations` in the Python API
 - [x] Custom root cause classifiers via `register_classifier` with regex patterns and/or predicates, running ahead of built-in patterns, plus `unregister_classifier`, `list_classifiers`, and `clear_classifiers`
 - [x] PagerDuty and Opsgenie alert channels via `PagerDutyAlert` (Events API v2, severity and source options, incident dedup by function and root cause) and `OpsgenieAlert` (Alert API, priority, tags, EU region, alert dedup by alias), plus `pagerduty_routing_key` and `opsgenie_api_key` shortcuts on `configure`
-- [ ] Prometheus metrics endpoint
+- [x] Prometheus metrics endpoint via `agent-sentry metrics` (print one scrape or `--serve` an HTTP endpoint on port 9464 with `--host`, `--port`, and `--limit` options), plus `build_metrics`, `create_metrics_server`, and `start_metrics_server` in the Python API, exporting reliability, event, failure, cost, and token metrics in the Prometheus text format
 
 ## v0.4.0
 - [ ] Real-time streaming dashboard (WebSocket)

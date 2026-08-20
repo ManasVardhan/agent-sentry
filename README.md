@@ -68,6 +68,7 @@ Traditional monitoring sees HTTP 200s and thinks everything is fine. But your ag
 | **Retry pattern detection** | Spot retry storms and flaky functions, with wasted time and cost per sequence. |
 | **Failure correlation** | Cluster failures in time and find functions that fail together (cascading failures). |
 | **Custom classifiers** | Register your own root cause labels with regex patterns or predicates. They run before the built-ins. |
+| **Prometheus metrics** | `/metrics` endpoint with reliability, failure, cost, and token metrics. Aggregates only, no prompt data. |
 | **CLI** | Terminal reports without opening a browser. |
 | **Zero config** | One decorator. Done. |
 
@@ -201,6 +202,7 @@ agent-sentry export             # Dump events as JSON to stdout
 agent-sentry retries            # Detect retry patterns (repeated failing calls)
 agent-sentry correlate          # Failure clusters and correlated function pairs
 agent-sentry costs              # LLM spend breakdown by model, function, or day
+agent-sentry metrics            # Prometheus metrics (print once or --serve)
 agent-sentry clear              # Clear all events
 ```
 
@@ -273,6 +275,44 @@ agent-sentry costs --json-output          # Machine-readable output
 Output includes calls, tokens, cost, and wasted cost (spend on failed
 calls) per bucket, plus totals with the wasted percentage and top model.
 Also available in Python via `aggregate_costs` and `summarize_costs`.
+
+### Prometheus metrics
+
+Expose agent reliability, failure, cost, and token metrics to a
+Prometheus server. Only aggregate numbers are exported: no prompts,
+arguments, or error messages ever leave the store.
+
+```bash
+agent-sentry metrics                      # Print one scrape to stdout
+agent-sentry metrics --serve              # Serve http://127.0.0.1:9464/metrics
+agent-sentry metrics --serve --port 9100  # Custom port
+agent-sentry metrics --serve --host 0.0.0.0  # Expose beyond localhost
+```
+
+Or start the endpoint inside your agent process:
+
+```python
+import agent_sentry
+
+agent_sentry.start_metrics_server(port=9464)  # daemon thread, non-blocking
+```
+
+Exported metrics: `agent_sentry_up`, `agent_sentry_events_total`
+(by event type and status), `agent_sentry_failures_total` (by root
+cause), `agent_sentry_reliability_score`, `agent_sentry_avg_duration_ms`,
+`agent_sentry_cost_usd_total`, `agent_sentry_wasted_cost_usd_total`,
+and `agent_sentry_tokens_total` (by model), plus
+`agent_sentry_db_size_bytes`. Counters are cumulative over the store,
+so they behave like normal Prometheus counters across scrapes.
+
+Scrape config:
+
+```yaml
+scrape_configs:
+  - job_name: agent-sentry
+    static_configs:
+      - targets: ["127.0.0.1:9464"]
+```
 
 ## Architecture
 

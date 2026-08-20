@@ -37,6 +37,12 @@ from .correlation import (
     summarize_correlations,
 )
 from .costs import CostBucket, aggregate_costs, summarize_costs
+from .metrics import (
+    MetricsServer,
+    build_metrics,
+    create_metrics_server,
+    start_metrics_server,
+)
 
 
 def watch(
@@ -180,6 +186,10 @@ __all__ = [
     "CostBucket",
     "aggregate_costs",
     "summarize_costs",
+    "MetricsServer",
+    "build_metrics",
+    "create_metrics_server",
+    "start_metrics_server",
     "get_store",
     "get_capture",
     "reset_capture",

@@ -432,6 +432,34 @@ def cmd_costs(args):
     print()
 
 
+def cmd_metrics(args):
+    """Print or serve Prometheus metrics."""
+    from .metrics import build_metrics, create_metrics_server
+
+    store = get_store(args.db)
+
+    if not args.serve:
+        print(build_metrics(store, event_limit=args.limit), end="")
+        return
+
+    try:
+        server = create_metrics_server(
+            store, host=args.host, port=args.port, event_limit=args.limit
+        )
+    except OSError as exc:
+        print(f"Error: could not bind {args.host}:{args.port}: {exc}")
+        sys.exit(1)
+
+    print(f"Serving Prometheus metrics on http://{args.host}:{args.port}/metrics")
+    print("Press Ctrl+C to stop.")
+    try:
+        server.serve_forever()
+    except KeyboardInterrupt:
+        print("\nMetrics server stopped.")
+    finally:
+        server.server_close()
+
+
 def cmd_correlate(args):
     """Detect failure clusters and correlated function failures."""
     from .correlation import (
@@ -709,6 +737,28 @@ def main():
         help="Emit JSON instead of a formatted table",
     )
     costs_parser.set_defaults(func=cmd_costs)
+
+    # metrics (Prometheus exposition)
+    metrics_parser = subparsers.add_parser(
+        "metrics", help="Print or serve Prometheus metrics"
+    )
+    metrics_parser.add_argument(
+        "--serve", action="store_true",
+        help="Serve metrics over HTTP instead of printing one scrape",
+    )
+    metrics_parser.add_argument(
+        "--host", default="127.0.0.1",
+        help="Host to bind the metrics server to (default: 127.0.0.1)",
+    )
+    metrics_parser.add_argument(
+        "--port", type=int, default=9464,
+        help="Port for the metrics server (default: 9464)",
+    )
+    metrics_parser.add_argument(
+        "--limit", type=int, default=100000,
+        help="Maximum events scanned for cost metrics (default: 100000)",
+    )
+    metrics_parser.set_defaults(func=cmd_metrics)
 
     args = parser.parse_args()
 
