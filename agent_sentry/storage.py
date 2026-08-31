@@ -65,11 +65,23 @@ class EventStore:
                     cost REAL,
                     root_cause TEXT,
                     metadata_json TEXT,
-                    tags TEXT
+                    tags TEXT,
+                    session_id TEXT,
+                    agent TEXT
                 )
             """)
+            # Migrate databases created before session tracking existed
+            cur.execute("PRAGMA table_info(events)")
+            existing = {row[1] for row in cur.fetchall()}
+            if "session_id" not in existing:
+                cur.execute("ALTER TABLE events ADD COLUMN session_id TEXT")
+            if "agent" not in existing:
+                cur.execute("ALTER TABLE events ADD COLUMN agent TEXT")
             cur.execute("""
                 CREATE INDEX IF NOT EXISTS idx_events_timestamp ON events(timestamp)
+            """)
+            cur.execute("""
+                CREATE INDEX IF NOT EXISTS idx_events_session ON events(session_id)
             """)
             cur.execute("""
                 CREATE INDEX IF NOT EXISTS idx_events_success ON events(success)
@@ -88,8 +100,9 @@ class EventStore:
                 INSERT OR REPLACE INTO events
                 (event_id, timestamp, event_type, function_name, args_json,
                  result_json, error_message, error_type, traceback, duration_ms,
-                 success, token_usage_json, cost, root_cause, metadata_json, tags)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                 success, token_usage_json, cost, root_cause, metadata_json, tags,
+                 session_id, agent)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 event["event_id"],
                 event.get("timestamp", datetime.now(timezone.utc).isoformat()),
@@ -107,6 +120,8 @@ class EventStore:
                 event.get("root_cause"),
                 json.dumps(event.get("metadata")) if event.get("metadata") else None,
                 json.dumps(event.get("tags")) if event.get("tags") else None,
+                event.get("session_id"),
+                event.get("agent"),
             ))
 
     def get_events(
@@ -117,6 +132,8 @@ class EventStore:
         success: Optional[bool] = None,
         since: Optional[str] = None,
         root_cause: Optional[str] = None,
+        session_id: Optional[str] = None,
+        agent: Optional[str] = None,
     ) -> List[Dict[str, Any]]:
         """Query events with optional filters."""
         query = "SELECT * FROM events WHERE 1=1"
@@ -125,6 +142,12 @@ class EventStore:
         if event_type:
             query += " AND event_type = ?"
             params.append(event_type)
+        if session_id:
+            query += " AND session_id = ?"
+            params.append(session_id)
+        if agent:
+            query += " AND agent = ?"
+            params.append(agent)
         if success is not None:
             query += " AND success = ?"
             params.append(1 if success else 0)
@@ -272,6 +295,41 @@ class EventStore:
         Convenience wrapper around get_events with success=False.
         """
         return self.get_events(limit=limit, success=False, since=since)
+
+    def get_session_stats(
+        self,
+        since: Optional[str] = None,
+        limit: int = 50,
+    ) -> List[Dict[str, Any]]:
+        """Aggregate per-session statistics for events with a session_id.
+
+        Returns one row per session with total, failures, started, ended,
+        total_cost, and a comma-joined distinct agents string, most recent
+        sessions first.
+
+        Args:
+            since: Optional ISO timestamp lower bound.
+            limit: Maximum number of sessions to return.
+        """
+        query = (
+            "SELECT session_id, COUNT(*) AS total, "
+            "SUM(CASE WHEN success = 0 THEN 1 ELSE 0 END) AS failures, "
+            "MIN(timestamp) AS started, MAX(timestamp) AS ended, "
+            "SUM(cost) AS total_cost, "
+            "GROUP_CONCAT(DISTINCT agent) AS agents "
+            "FROM events WHERE session_id IS NOT NULL"
+        )
+        params: list = []
+        if since:
+            query += " AND timestamp >= ?"
+            params.append(since)
+        query += " GROUP BY session_id ORDER BY started DESC LIMIT ?"
+        params.append(limit)
+
+        with self._cursor() as cur:
+            cur.execute(query, params)
+            rows = cur.fetchall()
+        return [dict(row) for row in rows]
 
     def health_check(self) -> Dict[str, Any]:
         """Run a health check on the event store.

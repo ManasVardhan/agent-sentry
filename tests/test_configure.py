@@ -85,4 +85,4 @@ def test_reset_capture_clears_global():
 
 
 def test_version():
-    assert agent_sentry.__version__ == "0.1.1"
+    assert agent_sentry.__version__ == "0.2.0"

@@ -1,6 +1,6 @@
 """agent-sentry: Crash reporting for AI agents. Catch failures before your users do."""
 
-__version__ = "0.1.1"
+__version__ = "0.2.0"
 
 import inspect
 from functools import wraps
@@ -42,6 +42,17 @@ from .metrics import (
     build_metrics,
     create_metrics_server,
     start_metrics_server,
+)
+from .sessions import (
+    SessionContext,
+    SessionSummary,
+    session,
+    current_session,
+    current_session_id,
+    current_agent,
+    list_sessions,
+    get_session_events,
+    summarize_sessions,
 )
 
 
@@ -190,6 +201,15 @@ __all__ = [
     "build_metrics",
     "create_metrics_server",
     "start_metrics_server",
+    "SessionContext",
+    "SessionSummary",
+    "session",
+    "current_session",
+    "current_session_id",
+    "current_agent",
+    "list_sessions",
+    "get_session_events",
+    "summarize_sessions",
     "get_store",
     "get_capture",
     "reset_capture",

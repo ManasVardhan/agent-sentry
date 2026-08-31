@@ -9,6 +9,18 @@ from typing import Any, Callable, Dict, Optional
 from .analysis import analyze_event
 from .storage import get_store, EventStore
 from .alerts import get_alert_manager, AlertManager
+from .sessions import current_session
+
+
+def _apply_session(event: Dict[str, Any]) -> None:
+    """Stamp the active session (if any) onto an event in place."""
+    active = current_session()
+    if not active:
+        return
+    if not event.get("session_id"):
+        event["session_id"] = active.get("session_id")
+    if not event.get("agent") and active.get("agent"):
+        event["agent"] = active.get("agent")
 
 
 class EventCapture:
@@ -69,6 +81,7 @@ class EventCapture:
             "metadata": metadata or {},
             "tags": tags or [],
         }
+        _apply_session(event)
 
         try:
             result = func(*args, **kwargs)
@@ -150,6 +163,7 @@ class EventCapture:
             "metadata": metadata or {},
             "tags": tags or [],
         }
+        _apply_session(event)
 
         try:
             result = await func(*args, **kwargs)
@@ -199,6 +213,7 @@ class EventCapture:
             event["timestamp"] = datetime.now(timezone.utc).isoformat()
         if "success" not in event:
             event["success"] = True
+        _apply_session(event)
 
         if self.auto_classify and not event.get("success"):
             event["root_cause"] = analyze_event(event)

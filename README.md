@@ -68,6 +68,7 @@ Traditional monitoring sees HTTP 200s and thinks everything is fine. But your ag
 | **Retry pattern detection** | Spot retry storms and flaky functions, with wasted time and cost per sequence. |
 | **Failure correlation** | Cluster failures in time and find functions that fail together (cascading failures). |
 | **Custom classifiers** | Register your own root cause labels with regex patterns or predicates. They run before the built-ins. |
+| **Session tracking** | Group events from multiple agents under one session_id and inspect whole workflows. |
 | **Prometheus metrics** | `/metrics` endpoint with reliability, failure, cost, and token metrics. Aggregates only, no prompt data. |
 | **CLI** | Terminal reports without opening a browser. |
 | **Zero config** | One decorator. Done. |
@@ -275,6 +276,47 @@ agent-sentry costs --json-output          # Machine-readable output
 Output includes calls, tokens, cost, and wasted cost (spend on failed
 calls) per bucket, plus totals with the wasted percentage and top model.
 Also available in Python via `aggregate_costs` and `summarize_costs`.
+
+### Multi-agent session tracking
+
+Wrap agent code in a session scope and every captured event, from
+`@watch`, the integrations, or `log_event`, is stamped with a shared
+`session_id` and the current agent name. Nested scopes inherit the
+session, so sub-agents can switch their agent name while staying in the
+same workflow:
+
+```python
+from agent_sentry import watch, session
+
+@watch
+def plan(task): ...
+
+@watch
+def execute(step): ...
+
+with session("ticket-4812", agent="planner"):
+    steps = plan("refund the customer")
+    with session(agent="executor"):
+        for step in steps:
+            execute(step)
+```
+
+Then inspect workflows from the CLI:
+
+```bash
+agent-sentry sessions                          # All sessions, most recent first
+agent-sentry sessions --hours 24               # Last day only
+agent-sentry sessions --session-id ticket-4812 # Event timeline for one session
+agent-sentry sessions --json-output            # Machine-readable output
+```
+
+The list view shows agents, event and failure counts, reliability, and
+duration per session. The detail view prints a per-event timeline with
+agent, function, status, and root cause. Python API: `session`,
+`current_session_id`, `current_agent`, `list_sessions`,
+`get_session_events`, and `summarize_sessions`, plus `session_id` and
+`agent` filters on `EventStore.get_events`. Existing databases are
+migrated automatically.
 
 ### Prometheus metrics
 

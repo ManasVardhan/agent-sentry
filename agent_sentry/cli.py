@@ -364,6 +364,119 @@ def cmd_retries(args):
     print()
 
 
+def cmd_sessions(args):
+    """List tracked sessions or show one session in detail."""
+    from .sessions import get_session_events, list_sessions, summarize_sessions
+
+    store = get_store(args.db)
+
+    since = None
+    if args.hours:
+        since = (datetime.now(timezone.utc) - timedelta(hours=args.hours)).isoformat()
+
+    if args.session_id:
+        sessions = [
+            s for s in list_sessions(store, since=since, limit=args.limit)
+            if s.session_id == args.session_id
+        ]
+        if not sessions:
+            print(f"Error: no session found with id {args.session_id!r}")
+            sys.exit(1)
+        summary = sessions[0]
+        events = get_session_events(args.session_id, store=store)
+
+        if args.json_output:
+            print(json.dumps(
+                {"session": summary.to_dict(), "events": events},
+                indent=2, default=str,
+            ))
+            return
+
+        print()
+        print(f"  Session {summary.session_id}")
+        print("  " + "-" * 70)
+        agents = ", ".join(summary.agents) if summary.agents else "(none)"
+        print(f"  Agents: {agents}")
+        print(
+            f"  Events: {summary.events} | Failures: {summary.failures} | "
+            f"Reliability: {summary.reliability}%"
+        )
+        if summary.duration_s is not None:
+            print(f"  Duration: {summary.duration_s:.1f}s")
+        if summary.total_cost:
+            print(f"  Cost: ${summary.total_cost:.4f}")
+        print()
+        print(f"  {'Time':<10} {'Agent':<14} {'Function':<26} {'Status':<8}")
+        print("  " + "-" * 70)
+        for event in reversed(events):
+            ts = (event.get("timestamp") or "")[11:19]
+            agent = (event.get("agent") or "-")[:14]
+            name = (event.get("function_name") or "-")
+            if len(name) > 26:
+                name = name[:23] + "..."
+            status = "ok" if event.get("success") else "FAIL"
+            line = f"  {ts:<10} {agent:<14} {name:<26} {status:<8}"
+            if not event.get("success") and event.get("root_cause"):
+                line += f" {event['root_cause']}"
+            print(line)
+        print()
+        return
+
+    sessions = list_sessions(store, since=since, limit=args.limit)
+
+    if args.json_output:
+        print(json.dumps(
+            {
+                "summary": summarize_sessions(sessions),
+                "sessions": [s.to_dict() for s in sessions],
+            },
+            indent=2, default=str,
+        ))
+        return
+
+    period = f"last {args.hours}h" if args.hours else "all time"
+    print()
+    print(f"  Sessions ({period})")
+    print("  " + "-" * 74)
+    if not sessions:
+        print("  No sessions recorded. Wrap agent code in agent_sentry.session().")
+        print()
+        return
+
+    print(
+        f"  {'Session':<24} {'Agents':<18} {'Events':>6} {'Fails':>5} "
+        f"{'Rel%':>6} {'Dur':>8}"
+    )
+    print("  " + "-" * 74)
+    for s in sessions:
+        sid = s.session_id
+        if len(sid) > 24:
+            sid = sid[:21] + "..."
+        agents = ", ".join(s.agents) if s.agents else "-"
+        if len(agents) > 18:
+            agents = agents[:15] + "..."
+        dur = f"{s.duration_s:.1f}s" if s.duration_s is not None else "-"
+        print(
+            f"  {sid:<24} {agents:<18} {s.events:>6} {s.failures:>5} "
+            f"{s.reliability:>6.1f} {dur:>8}"
+        )
+
+    totals = summarize_sessions(sessions)
+    print()
+    line = (
+        f"  Sessions: {totals['total_sessions']} | "
+        f"Events: {totals['total_events']} | "
+        f"Failures: {totals['total_failures']} | "
+        f"Reliability: {totals['reliability']}%"
+    )
+    if totals["multi_agent_sessions"]:
+        line += f" | Multi-agent: {totals['multi_agent_sessions']}"
+    print(line)
+    if totals["total_cost"]:
+        print(f"  Total cost: ${totals['total_cost']:.4f}")
+    print()
+
+
 def cmd_costs(args):
     """Display cost tracking analytics."""
     from .costs import aggregate_costs, summarize_costs
@@ -711,6 +824,28 @@ def main():
         help="Emit JSON instead of a formatted table",
     )
     correlate_parser.set_defaults(func=cmd_correlate)
+
+    # sessions (multi-agent session tracking)
+    sessions_parser = subparsers.add_parser(
+        "sessions", help="List tracked sessions or inspect one session"
+    )
+    sessions_parser.add_argument(
+        "--session-id", default=None,
+        help="Show a detailed event timeline for one session",
+    )
+    sessions_parser.add_argument(
+        "--hours", type=int, default=None,
+        help="Hours to look back (default: all time)",
+    )
+    sessions_parser.add_argument(
+        "--limit", type=int, default=50,
+        help="Maximum number of sessions to list (default: 50)",
+    )
+    sessions_parser.add_argument(
+        "--json-output", action="store_true",
+        help="Emit JSON instead of a formatted table",
+    )
+    sessions_parser.set_defaults(func=cmd_sessions)
 
     # costs (spend analytics)
     costs_parser = subparsers.add_parser(
