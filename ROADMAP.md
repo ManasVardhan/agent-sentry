@@ -32,7 +32,7 @@
 - [ ] Real-time streaming dashboard (WebSocket)
 - [ ] Agent replay from captured events
 - [ ] A/B testing for agent configurations
-- [ ] Anomaly detection on failure patterns
+- [x] Anomaly detection on failure patterns via `agent-sentry anomalies` with bucket-minutes, threshold, min-events, min-buckets, hours, and JSON output options: per-function time buckets compared against each function's own leave-one-out baseline, flagging failure_spike (failure rate far above baseline), latency_spike (average duration far above baseline), and new_root_cause (a cause the function never failed with before), plus `detect_anomalies` and `summarize_anomalies` in the Python API
 - [ ] Team dashboard with auth
 
 ## v1.0.0

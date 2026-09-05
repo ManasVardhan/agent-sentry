@@ -67,6 +67,7 @@ Traditional monitoring sees HTTP 200s and thinks everything is fine. But your ag
 | **Alerts** | Slack, PagerDuty, Opsgenie, webhooks, email, or custom callbacks. |
 | **Retry pattern detection** | Spot retry storms and flaky functions, with wasted time and cost per sequence. |
 | **Failure correlation** | Cluster failures in time and find functions that fail together (cascading failures). |
+| **Anomaly detection** | Flag failure rate spikes, latency spikes, and never-seen-before root causes against each function's own baseline. |
 | **Custom classifiers** | Register your own root cause labels with regex patterns or predicates. They run before the built-ins. |
 | **Session tracking** | Group events from multiple agents under one session_id and inspect whole workflows. |
 | **Prometheus metrics** | `/metrics` endpoint with reliability, failure, cost, and token metrics. Aggregates only, no prompt data. |
@@ -202,6 +203,7 @@ agent-sentry tail               # Most recent failures
 agent-sentry export             # Dump events as JSON to stdout
 agent-sentry retries            # Detect retry patterns (repeated failing calls)
 agent-sentry correlate          # Failure clusters and correlated function pairs
+agent-sentry anomalies          # Failure rate spikes, latency spikes, new root causes
 agent-sentry costs              # LLM spend breakdown by model, function, or day
 agent-sentry metrics            # Prometheus metrics (print once or --serve)
 agent-sentry clear              # Clear all events
@@ -234,6 +236,27 @@ agent-sentry retries --json-output        # Machine-readable output
 Output includes attempts, failures, outcome, wasted time and cost per
 sequence, root cause breakdowns, and an overall recovery rate. Also available
 in Python via `detect_retry_sequences` and `summarize_retries`.
+
+### Anomaly detection
+
+Catch behavior changes before they become incidents. `anomalies` buckets
+events into time windows per function and compares each bucket to that
+function's own history, so a steadily flaky function is not noise, but a
+normally reliable one jumping from 0 to 60 percent failures is flagged:
+
+```bash
+agent-sentry anomalies                      # All time, 60m buckets, 3 sigma
+agent-sentry anomalies --hours 48           # Recent history only
+agent-sentry anomalies --bucket-minutes 15  # Finer-grained buckets
+agent-sentry anomalies --threshold 2        # More sensitive
+agent-sentry anomalies --json-output        # Machine-readable output
+```
+
+Three anomaly types are reported: `failure_spike` (failure rate far above
+the function's baseline), `latency_spike` (average duration far above
+baseline), and `new_root_cause` (a root cause the function has never
+failed with before). Also available in Python via `detect_anomalies` and
+`summarize_anomalies`.
 
 ### Failure correlation analysis
 

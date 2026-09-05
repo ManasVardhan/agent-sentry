@@ -364,6 +364,87 @@ def cmd_retries(args):
     print()
 
 
+def cmd_anomalies(args):
+    """Detect and display failure-pattern anomalies."""
+    from .anomalies import detect_anomalies, summarize_anomalies
+
+    store = get_store(args.db)
+
+    since = None
+    if args.hours:
+        since = (datetime.now(timezone.utc) - timedelta(hours=args.hours)).isoformat()
+
+    events = store.get_events(limit=args.limit, since=since)
+
+    try:
+        anomalies = detect_anomalies(
+            events,
+            bucket_minutes=args.bucket_minutes,
+            threshold=args.threshold,
+            min_events=args.min_events,
+            min_buckets=args.min_buckets,
+        )
+    except ValueError as exc:
+        print(f"Error: {exc}")
+        sys.exit(1)
+
+    summary = summarize_anomalies(anomalies)
+
+    if args.json_output:
+        print(json.dumps(
+            {"summary": summary, "anomalies": [a.to_dict() for a in anomalies]},
+            indent=2,
+        ))
+        return
+
+    period = f"last {args.hours}h" if args.hours else "all time"
+    print()
+    print(f"  Anomalies ({period}, {args.bucket_minutes}m buckets, threshold {args.threshold:g})")
+    print("  " + "-" * 74)
+    if not anomalies:
+        print("  No anomalies detected.")
+        print()
+        return
+
+    print(f"  {'Function':<24} {'Type':<15} {'Observed':>10} {'Baseline':>10} {'Sigma':>6}")
+    print("  " + "-" * 74)
+    for anomaly in anomalies:
+        name = anomaly.function_name
+        if len(name) > 24:
+            name = name[:21] + "..."
+        if anomaly.type == "failure_spike":
+            observed = f"{anomaly.observed * 100:.0f}%"
+            baseline = f"{anomaly.baseline * 100:.0f}%"
+            sigma = f"{anomaly.deviation:.1f}"
+        elif anomaly.type == "latency_spike":
+            observed = f"{anomaly.observed / 1000:.2f}s"
+            baseline = f"{anomaly.baseline / 1000:.2f}s"
+            sigma = f"{anomaly.deviation:.1f}"
+        else:
+            observed = f"x{anomaly.observed:.0f}"
+            baseline = "-"
+            sigma = "-"
+        print(
+            f"  {name:<24} {anomaly.type:<15} {observed:>10} {baseline:>10} {sigma:>6}"
+        )
+        detail = f"    At {anomaly.bucket_start} ({anomaly.events} events, {anomaly.failures} failures)"
+        if anomaly.details.get("root_cause"):
+            detail += f", new cause: {anomaly.details['root_cause']}"
+        print(detail)
+
+    print()
+    types = ", ".join(f"{t}: {n}" for t, n in sorted(summary["by_type"].items()))
+    print(
+        f"  Anomalies: {summary['total_anomalies']} | "
+        f"Functions affected: {summary['functions_affected']}"
+    )
+    if types:
+        print(f"  By type: {types}")
+    if summary["most_affected_function"]:
+        print(f"  Most affected: {summary['most_affected_function']}")
+    print()
+
+
 def cmd_sessions(args):
     """List tracked sessions or show one session in detail."""
     from .sessions import get_session_events, list_sessions, summarize_sessions
@@ -794,6 +875,40 @@ def main():
         help="Emit JSON instead of a formatted table",
     )
     retries_parser.set_defaults(func=cmd_retries)
+
+    # anomalies (failure pattern anomaly detection)
+    anomalies_parser = subparsers.add_parser(
+        "anomalies", help="Detect failure rate spikes, latency spikes, and new root causes"
+    )
+    anomalies_parser.add_argument(
+        "--bucket-minutes", type=int, default=60,
+        help="Time bucket width in minutes (default: 60)",
+    )
+    anomalies_parser.add_argument(
+        "--threshold", type=float, default=3.0,
+        help="Standard deviations above baseline to flag (default: 3.0)",
+    )
+    anomalies_parser.add_argument(
+        "--min-events", type=int, default=5,
+        help="Minimum events in a bucket to evaluate spikes (default: 5)",
+    )
+    anomalies_parser.add_argument(
+        "--min-buckets", type=int, default=3,
+        help="Minimum buckets per function for spike detection (default: 3)",
+    )
+    anomalies_parser.add_argument(
+        "--hours", type=int, default=None,
+        help="Hours to look back (default: all time)",
+    )
+    anomalies_parser.add_argument(
+        "--limit", type=int, default=10000,
+        help="Maximum number of events to analyze (default: 10000)",
+    )
+    anomalies_parser.add_argument(
+        "--json-output", action="store_true",
+        help="Emit JSON instead of a formatted table",
+    )
+    anomalies_parser.set_defaults(func=cmd_anomalies)
 
     # correlate (failure correlation analysis)
     correlate_parser = subparsers.add_parser(

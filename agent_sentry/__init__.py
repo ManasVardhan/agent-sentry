@@ -1,6 +1,6 @@
 """agent-sentry: Crash reporting for AI agents. Catch failures before your users do."""
 
-__version__ = "0.2.0"
+__version__ = "0.3.0"
 
 import inspect
 from functools import wraps
@@ -29,6 +29,7 @@ from .analysis import (
     unregister_classifier,
 )
 from .retries import RetrySequence, detect_retry_sequences, summarize_retries
+from .anomalies import Anomaly, detect_anomalies, summarize_anomalies
 from .correlation import (
     FailureCluster,
     FunctionCorrelation,
@@ -189,6 +190,9 @@ __all__ = [
     "RetrySequence",
     "detect_retry_sequences",
     "summarize_retries",
+    "Anomaly",
+    "detect_anomalies",
+    "summarize_anomalies",
     "FailureCluster",
     "FunctionCorrelation",
     "find_failure_clusters",
